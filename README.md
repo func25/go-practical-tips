@@ -4,4 +4,4 @@ The main goal here is not to enforce strict rules or give aggressive advice. Ins
 
 # Practical Tips
 
-For more detailed explanations and examples, check out [Go Practical Tips](https://github.com/func25/go-practical-tips). You'll find the tips organized into different sections, each focusing on specific aspects of writing Go code. These tips are meant to be practical and useful, serving as a guide or a reference to help you write better Go code.
+For more detailed explanations and examples, check out [Go Practical Tips](https://github.com/func25/go-tips/blob/main/tips.md). You'll find the tips organized into different sections, each focusing on specific aspects of writing Go code. These tips are meant to be practical and useful, serving as a guide or a reference to help you write better Go code.
