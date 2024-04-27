@@ -100,7 +100,7 @@
     - [Compile-Time Interface Verification](#compile-time-interface-verification)
     - [Prevent Struct Unkeyed Literals by Using an Empty Field](#prevent-struct-unkeyed-literals-by-using-an-empty-field)
   - [Miscellaneous](#miscellaneous)
-    - [Parse an Array into a Slice](#parse-an-array-into-a-slice)
+    - [Parse a Slice into an Array](#parse-a-slice-into-an-array)
     - [Avoid Using `math/rand`, Use `crypto/rand` for Keys Instead](#avoid-using-mathrand-use-cryptorand-for-keys-instead)
     - [Table-driven Tests, Subtests, and Parallel Tests](#table-driven-tests-subtests-and-parallel-tests)
       - [1. Table-driven Tests](#1-table-driven-tests)
@@ -5046,7 +5046,7 @@ For instance, when dealing with a map element that only contains only key and va
 
 ## Miscellaneous
 
-### Parse an Array into a Slice
+### Parse a Slice into an Array
 
 You might think of using the `copy()` function when you need to convert a slice into an array, right?
 
@@ -5057,7 +5057,7 @@ var array [5]int
 copy(array, slice)
 ```
 
-While this method works perfectly fine, it can seem a bit roundabout.
+While this method works perfectly fine, it can seem a bit verbose.
 
 If we've updated our project to Go 1.20, we can handle this conversion much more straightforwardly, similar to how you might convert between other types, like from int to int32.
 
