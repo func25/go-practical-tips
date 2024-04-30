@@ -1113,7 +1113,7 @@ This check allows any subsequent calls to bypass the function execution if it’
 
 **The slow path**
 
-Now, if the counter isn’t at 0, `sync.Once` switches to what's called the slow path, which involves executing the function:
+Now, if the counter is 0, `sync.Once` switches to what's called the slow path, which involves executing the function:
 
 ```go
 func(o *Once) doSlow(f func()) {
