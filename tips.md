@@ -5197,7 +5197,7 @@ func TestAdd(t *testing.T) {
         a, b, expected int
     }{
         {"2 positives", 1, 2, 3},
-        {"positive & zero", 5, 0, 5}
+        {"positive & zero", 5, 0, 5},
         {"2 negatives", -1, -2, -3},
         {"negative & positive", -5, 10, 5},
     }
