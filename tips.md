@@ -1,4 +1,4 @@
-# Golang Practical Tips 
+# Golang Practical Tips
 
 - [Golang Practical Tips](#golang-practical-tips)
   - [Context](#context)
@@ -20,9 +20,9 @@
     - [Adjusting `GOMAXPROCS` for Containerized Environments (Kubernetes, Docker, etc.)](#adjusting-gomaxprocs-for-containerized-environments-kubernetes-docker-etc)
       - [Running Go in Containers (Docker \& Kubernetes)](#running-go-in-containers-docker--kubernetes)
       - [The Solution](#the-solution)
-      - [How Does it Work?](#how-does-it-work)
+      - [How Does It Work?](#how-does-it-work)
     - [`sync.Pool` but Make It Typed-Safe with Generics](#syncpool-but-make-it-typed-safe-with-generics)
-      - [Typed-safe Pool](#typed-safe-pool)
+      - [Type-safe Pool](#type-safe-pool)
     - [Making a Type with Built-in Locking (`sync.Mutex` Embedding)](#making-a-type-with-built-in-locking-syncmutex-embedding)
     - [How to Send on a Channel Without Getting Stuck](#how-to-send-on-a-channel-without-getting-stuck)
   - [Error Handling](#error-handling)
@@ -45,10 +45,10 @@
   - [Readability \& Maintainability](#readability--maintainability)
     - [Make `time.Duration` Clear and Readable](#make-timeduration-clear-and-readable)
     - [Making Sense of Large Numbers with Numeric Separators](#making-sense-of-large-numbers-with-numeric-separators)
-    - [Avoid Naked Parameters with Comment or Constant](#avoid-naked-parameters-with-comment-or-constant)
+    - [Avoid Naked Parameters with Comments or Constants](#avoid-naked-parameters-with-comments-or-constants)
     - [Empty Slice or, Even Better, `nil` Slice](#empty-slice-or-even-better-nil-slice)
     - [Understand "Return Fast, Return Early" to Avoid Nested Code](#understand-return-fast-return-early-to-avoid-nested-code)
-    - [Define Interfaces in the Consumer Package, Not the Producer Once](#define-interfaces-in-the-consumer-package-not-the-producer-once)
+    - [Define Interfaces in the Consumer Package, Not the Producer Package](#define-interfaces-in-the-consumer-package-not-the-producer-package)
     - [Avoid Using `break` in Switch Cases, Except When Paired with Labels](#avoid-using-break-in-switch-cases-except-when-paired-with-labels)
     - [Keep Your Names Simple and Clear by Avoiding Repetition](#keep-your-names-simple-and-clear-by-avoiding-repetition)
     - [Skip the 'Get' Prefix for Getters](#skip-the-get-prefix-for-getters)
@@ -71,7 +71,7 @@
     - [Avoid Named Results unless Necessary for Documentation](#avoid-named-results-unless-necessary-for-documentation)
       - [2. Avoid Naked Returns in Long Functions](#2-avoid-naked-returns-in-long-functions)
       - [3. Necessary for Deferred Closures](#3-necessary-for-deferred-closures)
-      - [4. Some Cases Don’t Need Naming, Even With More Than Two Results](#4-some-cases-dont-need-naming-even-with-more-than-two-results)
+      - [4. Some Cases Don't Need Naming, Even With More Than Two Results](#4-some-cases-dont-need-naming-even-with-more-than-two-results)
     - [Lead with Context, End with Options, and Always Close with an Error](#lead-with-context-end-with-options-and-always-close-with-an-error)
     - [Intentionally Stop with Must Functions](#intentionally-stop-with-must-functions)
     - [Pass Values, Not Pointers](#pass-values-not-pointers)
@@ -90,7 +90,7 @@
       - [2. Goroutines](#2-goroutines)
       - [3. Other Operations](#3-other-operations)
     - [Tips for a Cleaner, More Testable main() Function in Go](#tips-for-a-cleaner-more-testable-main-function-in-go)
-    - [Just... Don’t Panic()](#just-dont-panic)
+    - [Just... Don't Panic()](#just-dont-panic)
   - [Tricks](#tricks)
     - [Measure the Execution Time of a Function Using defer](#measure-the-execution-time-of-a-function-using-defer)
     - [Multistage Defer: Handling the Start and End of a Function Efficiently](#multistage-defer-handling-the-start-and-end-of-a-function-efficiently)
@@ -113,11 +113,11 @@
 
 ### Avoid Using `context.Background()`, Make Your Goroutines More Reliable
 
-When we manage multiple tasks at once, we use goroutines, right? Each dedicated to a specific function like making HTTP requests or querying databases. The issue arises when these tasks need to pause, this is where it gets tricky because we don't want our goroutines to just halt indefinitely or block without a way to exit.
+When we manage multiple tasks at once, we use goroutines, right? Each goroutine is dedicated to a specific function, such as making HTTP requests or querying databases. The issue appears when these tasks need to stop or wait. This is where it gets tricky, because we don't want our goroutines to halt indefinitely or block without a way to exit.
 
 > "Why should we avoid using context.Background() directly?"
 
-The main reason we avoid using `context.Background()` directly is because it offers no way to stop or cancel operations if something goes wrong. It’s the simplest form of context we can use, with no values, no deadlines, no cancellation signals. This can be a problem when operations get stuck or need to be ended smoothly.
+The main reason we avoid using `context.Background()` directly is that it offers no way to stop or cancel operations if something goes wrong. It's the simplest form of context we can use, with no values, no deadlines, and no cancellation signals. This can be a problem when operations get stuck or need to end smoothly.
 
 To handle this, we usually rely on two strategies: cancel and timeout.
 
@@ -132,17 +132,17 @@ context.WithDeadline(ctx)
 context.WithDeadlineCause(ctx, deadline, errors.New("custom message"))
 ```
 
-With these tools, every goroutine we start comes with a clear expectation: "I will finish my task or I'll explain why I couldn’t in time, and you have the power to cancel my task if necessary."
+With these tools, every goroutine we start comes with a clear expectation: "I will finish my task or explain why I couldn't finish in time, and you have the power to cancel my task if necessary."
 
 A few points to keep in mind:
 
 - Underneath it all, `WithTimeout` is really just `WithDeadline` with a different name.
-- The XXXCause functions, which were added in the recent Go updates (versions 1.20 and 1.21), offer better error reporting.
+- The XXXCause functions, which were added in recent Go versions (1.20 and 1.21), offer better error reporting.
 - If a timeout happens with `XXXCause`, it provides a more detailed error message: _"context deadline exceeded: custom message."_
 
 > "What about channels? I don't want to wait forever on a channel."
 
-When dealing with channels and we want to ensure we're not waiting indefinitely, a better way to manage this is by using the `select` statement, which allows us to set up a timeout option:
+When dealing with channels, if we want to make sure we're not waiting indefinitely, a better way to manage this is to use the `select` statement, which allows us to set up a timeout option:
 
 ```go
 select {
@@ -153,13 +153,13 @@ case <-time.After(5 * time.Second):
 }
 ```
 
-However, it's important to be aware that using `time.After` might lead to short-term memory leaks. In certain cases, it might be more effective to use `time.Timer` or `time.Ticker` which give us better control over timing.
+However, it's important to be aware that using `time.After` might lead to short-term memory leaks. In certain cases, it might be more effective to use `time.Timer` or `time.Ticker`, which give us better control over timing.
 
 We'll dive into these alternatives and their values in our upcoming tips.
 
 ### Unfortunately, `context.Value` Is Not Our Friend
 
-Let's talk about using `context.Value`, it seems like a handy tool since we can just drop some data into the context and pick it up wherever we need it. 
+Let's talk about using `context.Value`. It seems like a handy tool because we can drop some data into the context and pick it up wherever we need it.
 
 This keeps our function signatures clean and simple, right? Here's how it typically goes down:
 
@@ -183,31 +183,31 @@ func C(ctx context.Context) {
 }
 ```
 
-In this setup, function `A` grabs a payment record and adds it to the context, function `C`, called within `B`, retrieves this payment. This strategy avoids passing the payment directly through function `B`, which doesn't need to know about the payment.
+In this setup, function `A` grabs a payment record and adds it to the context. Function `C`, called within `B`, retrieves this payment. This strategy avoids passing the payment directly through function `B`, which doesn't need to know about the payment.
 
 This approach might look good because:
 
-- It allows us to omit passing specific data through functions like B that don't use it.
+- It allows us to avoid passing specific data through functions like `B` that don't use it.
 - It enables us to keep all necessary data in one place, within the context.
 - It avoids extra parameters in function signatures.
 
-Why not just call function C directly from function A? Often, C is deeply integrated into B's logic and might depend on some of its computations, arguments.
+Why not just call function `C` directly from function `A`? Often, `C` is deeply integrated into `B`'s logic and might depend on some of its computations or arguments.
 
 So what's the problem? Here's where we hit some issues:
 
 - We're giving up the type-checking safety that Go provides during compilation.
-- We're putting data into a black box and hoping to find it again later, which after a week could be like searching blindly.
+- We're putting data into a black box and hoping to find it again later, which can become hard to reason about after a week.
 - The payment data seems optional because of implicit passing, yet it's actually important.
 
-From personal perspective, The main issue with using `ctx.Value` is how it hides data. It's like putting something in a safe without a clear label. Sure, it's stored away, but retrieving it becomes a guessing game. 
+From my perspective, the main issue with using `ctx.Value` is how it hides data. It's like putting something in a safe without a clear label. Sure, it's stored away, but retrieving it becomes a guessing game.
 
 Being explicit about what we're passing around usually leads to fewer headaches down the road.
 
 > "So, when is it appropriate to use `context.Value()`?"
 
-It's best to limit its use, but the Go documentation suggests it's suitable for passing request-scoped values across API boundaries and between processes. Here are some good uses:
+It's best to limit its use, but the Go documentation says it is suitable for passing request-scoped values across API boundaries and between processes. Here are some good uses:
 
-You might consider using it for tracking certain request-related data like:
+You might consider using it for tracking certain request-related data, such as:
 
 - Tracking the start time of a request
 - Logging the caller's IP address
@@ -217,13 +217,13 @@ You might consider using it for tracking certain request-related data like:
 
 > "Isn't my 'payment' data relevant to the request?"
 
-If payment information is important across multiple functions, it's clearer and safer to pass it **explicitly** through function parameters, this helps anyone reading the code immediately understand that the function directly interacts with the payment data.
+If payment information is important across multiple functions, it's clearer and safer to pass it **explicitly** through function parameters. This helps anyone reading the code immediately understand that the function directly interacts with the payment data.
 
-Generally, it's better to avoid embedding critical business data within the context, this strategy keeps our code **clear** and maintainable.
+Generally, it's better to avoid embedding critical business data within the context. This strategy keeps our code **clear** and maintainable.
 
 ### Keep Contexts Alive with `context.WithoutCancel()`
 
-So, when you're working with contexts in Go, one thing that's pretty straightforward is the way cancelling works. If you cancel a parent context, all the child contexts get cancelled too. 
+So, when you're working with contexts in Go, one thing that's pretty straightforward is the way cancellation works. If you cancel a parent context, all child contexts get canceled too.
 
 Here's an easy example to see how that plays out:
 
@@ -239,9 +239,9 @@ go func(ctx context.Context) {
 cancel()
 ```
 
-In this snippet, once we cancel the `parentCtx`, the `childCtx` is also cancelled and this is normally what we want, but sometimes you might find yourself needing a child context to keep running, even if its parent was cancelled.
+In this snippet, once we cancel the `parentCtx`, the `childCtx` is also canceled. This is normally what we want, but sometimes you might need a child context to keep running, even if its parent was canceled.
 
-There's a common scenario we often run into when working with HTTP requests in Go. Launching a goroutine to handle tasks after the main request has been processed can sometimes lead to errors if not handled carefully:
+There's a common scenario we often run into when working with HTTP requests in Go. Launching a goroutine to handle tasks after the main request has been processed can lead to errors if it is not handled carefully:
 
 ```go
 func handleRequest(req *http.Request) {
@@ -266,7 +266,7 @@ childCtx, _ := context.WithCancel(parentCtx)
 fmt.Println("Propagated value": childCtx.Value("requestID")) // 12345
 ```
 
-In scenarios like our HTTP request example, to make sure some operations continue even if the parent context is cancelled, we could try this:
+In scenarios like our HTTP request example, if we want some operations to continue even if the parent context is canceled, we could try this:
 
 ```go
 func handleRequest(req * http.Request) {
@@ -277,17 +277,17 @@ func handleRequest(req * http.Request) {
 
     go func(ctx context.Context) {
         // This logging operation won't be interrupted if
-        // the parent context (ctx) is cancelled
+        // the parent context (ctx) is canceled
         getMetrics(uncancelableCtx, req)
     }(ctxWithoutCancel)
 }
 ```
 
-Basically, the `context.WithoutCancel()` function, which was introduced in Go 1.21, allows certain operations to continue without being affected by the cancellation of their parent context.
+Basically, the `context.WithoutCancel()` function, which was introduced in Go 1.21, allows certain operations to continue without being affected by their parent context's cancellation.
 
 ### Schedule Functions After Context Cancellation Using `context.AfterFunc`
 
-So we have discussed how to keep a context active even after its parent has been stopped. Now, we're going to look at another handy feature introduced in Go 1.21, which is `context.AfterFunc`. This function lets you schedule a callback function `f` to run in a separate goroutine once a `ctx` ends, whether due to cancellation or timeout.
+So we have discussed how to keep a context active even after its parent has been stopped. Now, we're going to look at another handy feature introduced in Go 1.21: `context.AfterFunc`. This function lets you schedule a callback function `f` to run in a separate goroutine once a `ctx` ends, whether due to cancellation or timeout.
 
 Here's how you can use it:
 
@@ -300,24 +300,24 @@ stop := context.AfterFunc(ctx, func() {
 })
 ```
 
-This snippet of code sets up a cleanup task to run once the context is complete and it's really useful for tasks like cleanup, logging, or other operations that need to happen after a cancellation.
+This snippet sets up a cleanup task to run once the context is complete. It is useful for cleanup, logging, or other operations that need to happen after cancellation.
 
-> “When does the callback run?”
+> "When does the callback run?"
 
 Well, it kicks off in a new goroutine as soon as the `ctx.done` channel of the parent context sends a signal.
 
-> “What if the context is already cancelled?”
+> "What if the context is already canceled?"
 
 Then the callback runs immediately, of course, in a new goroutine.
 
-Here’s the rundown:
+Here's the rundown:
 
 - `AfterFunc` can be used multiple times with the same context, and each task you set up runs independently.
 - If the context is already done when you call `AfterFunc`, it triggers the function right away in a new goroutine.
 - It provides a `stop` function that lets you cancel the planned function.
-- Using the `stop` function is non-blocking, it doesn't wait for the function to finish, it stops it immediately. If you need the function and your main work to be synchronized, you'll have to manage that yourself.
+- Using the `stop` function is non-blocking. It doesn't wait for the function to finish; it only stops it if it has not started yet. If you need the function and your main work to be synchronized, you'll have to manage that yourself.
 
-Let's delve a bit into the stop(), the function returned by `AfterFunc`:
+Let's look a bit more closely at `stop()`, the function returned by `AfterFunc`:
 
 ```go
 stop := context.AfterFunc(ctx, func() {
@@ -329,13 +329,13 @@ if stopped := stop(); stopped {
 }
 ```
 
-If you call `stop()` before the context finishes and the callback hasn't run yet (meaning the goroutine hasn't been triggered), stopped will return `true`, indicating that you successfully stopped the callback from running.
+If you call `stop()` before the context finishes and the callback hasn't run yet, meaning the goroutine hasn't been triggered, `stopped` will return `true`, indicating that you successfully stopped the callback from running.
 
-But, if `stop()` returns `false`, it could mean either the function `f` has already started running in a new goroutine, or it has been stopped already.
+But if `stop()` returns `false`, it could mean either that the function `f` has already started running in a new goroutine or that it has already been stopped.
 
 ### Use an Unexported Empty Struct as a Context Key
 
-Context (context.Context) is great for passing request-scoped values along with cancellation signals and deadlines, you might sometimes need to add and retrieve values from the context. Let’s look at a basic example:
+Context (`context.Context`) is great for passing request-scoped values along with cancellation signals and deadlines. You might sometimes need to add and retrieve values from the context. Let's look at a basic example:
 
 ```go
 func main() {
@@ -354,9 +354,9 @@ func handleRequest(ctx context.Context) {
 // Output: "data: request-scoped data"
 ```
 
-Here, the challenge is making sure the key used to store values in the context is unique. 
+Here, the challenge is making sure the key used to store values in the context is unique.
 
-Using a string like "data" as a key could lead to conflicts if someone else in another part of your program uses the same string as a key. To avoid this, you can use an empty, unexported struct as a key, since each struct is unique in package scope:
+Using a string like "data" as a key could lead to conflicts if someone else in another part of your program uses the same string as a key. To avoid this, you can use an empty, unexported struct as a key, since each struct type is unique within its package:
 
 ```go
 type empty struct{}
@@ -383,9 +383,9 @@ func handleRequest(ctx context.Context) {
 
 Basically, using an unexported (private) empty struct helps you avoid any potential conflicts with other packages.
 
-> "Can I use other types, but the underlying type is still a string or int?"
+> "Can I use other types if the underlying type is still a string or int?"
 
-Yes, we can use another type, and it should avoid conflict. For instance, a number(0) which has an underlying type of int and int(0) are different:
+Yes, we can use another type, and it should avoid conflicts. For instance, `number(0)`, which has an underlying type of `int`, and `int(0)` are different:
 
 ```go
 type number int
@@ -414,7 +414,7 @@ func handleRequest(ctx context.Context) {
 // "data: value from int type"
 ```
 
-This works because in Go, two `interface{}` values are only equal if both their type and value match. So, they're different types and not equal.
+This works because in Go, two `interface{}` values are only equal if both their type and value match. So they are different types and are not equal.
 
 - The first value: { type: number, value: 0 }
 - The second value: { type: int, value: 0 }
@@ -423,11 +423,11 @@ They are different types, so they are not equal.
 
 > "But why use an empty struct{}?"
 
-An empty struct doesn't allocate any memory since it has no fields and therefore no data, but its type can still uniquely identify context values, this makes it a lightweight and conflict-free option for keys.
+An empty struct doesn't allocate any memory since it has no fields and therefore no data, but its type can still uniquely identify context values. This makes it a lightweight and conflict-free option for keys.
 
-Of course, there are still cases where you might use type definitions that have an underlying primitive type. 
+Of course, there are still cases where you might use type definitions that have an underlying primitive type.
 
-_Using context values can be tricky, especially when writing business logic. It's not compile-time safe and can be difficult for tracking and debugging because it's an implicit way of passing data._
+_Using context values can be tricky, especially when writing business logic. It's not compile-time safe, and it can be difficult to track and debug because it's an implicit way of passing data._
 
 ### Handle Errors of Deferred Calls to Prevent Silent Failures
 
@@ -445,13 +445,13 @@ func doSomething() error {
 }
 ```
 
-In this snippet, if closing the file fails, maybe because something wasn't written properly or there's a glitch in the file system, and we don't check for that error, then we're missing a chance to catch and handle a potentially critical issue.
+In this snippet, if closing the file fails, maybe because something wasn't written properly or there's a glitch in the file system, and we don't check for that error, then we miss a chance to catch and handle a potentially critical issue.
 
-Now, if we stick with using defer, we've basically got three ways to deal with it:
+Now, if we stick with using `defer`, we basically have three ways to deal with it:
 
 - We can handle the error as part of the function's return.
-- We could let the program panic, this might be a bit drastic unless it's a truly severe error that justifies crashing the program.
-- Or we might just log the error and move on, it's simpler but means you're not actively handling the error—just noting that it happened.
+- We could let the program panic. This might be a bit drastic unless it's a truly severe error that justifies crashing the program.
+- Or we might just log the error and move on. It's simpler, but it means you're not actively handling the error; you're just noting that it happened.
 
 But how about handling this as a function error? That's a bit more nuanced. We can use named return values to manage it neatly:
 
@@ -472,9 +472,9 @@ func DoSomething(path string) (err error) {
 }
 ```
 
-In this version, we're using a named return variable `err` for the function's error return. 
+In this version, we're using a named return variable `err` for the function's error return.
 
-Inside the deferred function, we check if `file.Close()` returns an error (captured as `cerr`). If it does, we use `errors.Join` to combine (not wrap) it with any existing error err might already hold. This way, the function can return an error that reflects issues from both the file opening and the file closing operations.
+Inside the deferred function, we check if `file.Close()` returns an error, captured as `cerr`. If it does, we use `errors.Join` to combine it with any existing error `err` might already hold, rather than wrap it. This way, the function can return an error that reflects issues from both the file opening and file closing operations.
 
 Alternatively, you could simplify it slightly:
 
@@ -484,7 +484,7 @@ defer func() {
 }()
 ```
 
-This shorter version does essentially the same thing but compresses it into a single line inside the defer. Now, even this shorter method adds a bit of complexity because of the anonymous function, which increases the nesting and can make the code a bit harder to follow.
+This shorter version does essentially the same thing but compresses it into a single line inside the `defer`. Even this shorter method adds a bit of complexity because of the anonymous function, which increases nesting and can make the code harder to follow.
 
 There's actually another way to handle errors in deferred calls using a neat helper function:
 
@@ -500,11 +500,11 @@ func closeWithError(err *error, f func() error) {
 
 That's a valid concern, but here's the twist: it actually works just fine.
 
-Here’s why: In Go, error is an `interface{}`, and a nil error doesn't behave the same way as a nil pointer does for other types, like say, a *int. 
+Here's why: In Go, `error` is an `interface{}`, and a nil error doesn't behave the same way as a nil pointer does for other types, such as `*int`.
 
-A nil error is represented internally as` {type = nil, value = nil}`, but it's still a valid, usable value (the zero value for interfaces), to be precise.
+A nil error is represented internally as `{type = nil, value = nil}`, but it's still a valid, usable value, or more precisely, the zero value for interfaces.
 
-So, when we use `&err` in the defer closeWithError(&err, file) call, we're not dealing with a nil pointer scenario. What we're actually getting is a pointer to an interface variable that itself holds {type = nil, value = nil}.
+So, when we use `&err` in the `defer closeWithError(&err, file)` call, we're not dealing with a nil pointer scenario. What we're actually getting is a pointer to an interface variable that itself holds `{type = nil, value = nil}`.
 
 This means that in the `closeWithError` function, when we dereference the error pointer with `*err` to assign a new value, we're not dereferencing a nil pointer (which would indeed cause a panic). Instead, what we're doing is modifying the value of an interface variable through its pointer. This is a safe operation and avoids the panic you might expect.
 
@@ -512,17 +512,17 @@ The solution is inspired by [David Nix](https://twitter.com/davidnix_).
 
 ### Always Keep Track of Your Goroutine's Lifetime
 
-Goroutines are stackful, meaning they take more memory than similar constructs in other languages, at least 2KB each, this is small but not negligible.
+Goroutines are stackful, meaning they take more memory than similar constructs in other languages: at least 2KB each. This is small but not negligible.
 
 Each time we launch a goroutine with `go doSomething()`, we're immediately reserving 2KB of memory (this was 4KB in Go 1.2 and increased to 8KB by Go 1.4).
 
-So, the disadvantage is, when your Go program handles a lot of things at once, its memory usage can shoot up quicker compared to languages without such stack allocations.
+So the disadvantage is that when your Go program handles a lot of things at once, its memory usage can grow faster compared with languages without such stack allocations.
 
 This initial size is a starting point, and the Go runtime automatically adjusts the stack size of goroutines during their execution to accommodate the memory requirements of each goroutine's workload.
 
 The process works like this: when a goroutine's stack reaches its current limit, the Go runtime detects this condition and allocates a larger stack space. It then copies the existing stack's contents to the new, larger stack, and continues the goroutine's execution with this expanded stack space.
 
-I've personally run into situations where I used a bunch of goroutines with for-loops and `time.Sleep`, like this:
+I've personally run into situations where I used a bunch of goroutines with `for` loops and `time.Sleep`, like this:
 
 ```go
 func Job(d time.Duration) {
@@ -542,13 +542,13 @@ func Job(d time.Duration){
 
 Writing it this way can seem convenient, but it definitely has its drawbacks.
 
-When we talk about gracefully shutting down your application, as outlined in our section on this topic [Gracefully Shut Down Your Application](#gracefully-shut-down-your-application), we hit upon a tricky issue with certain functions, like `time.Sleep`, which inherently don't support graceful shutdowns very well.
+When we talk about gracefully shutting down your application, as outlined in [Gracefully Shut Down Your Application](#gracefully-shut-down-your-application), we hit a tricky issue with certain functions, like `time.Sleep`, which inherently don't support graceful shutdown very well.
 
 - Sleep -> SIGTERM -> Running -> Interrupted.
 
 _[Avoid `time.Sleep()`, It's Not Context-Aware and Can't Be Interrupted](#avoid-timesleep-its-not-context-aware-and-cant-be-interrupted)_
 
-So, for tasks that don't naturally come to an end, like serving network connections or monitoring a configuration file, it’s better to use cancellation signals or conditions to clearly define when these tasks should stop.
+So, for tasks that don't naturally come to an end, like serving network connections or monitoring a configuration file, it's better to use cancellation signals or conditions to clearly define when these tasks should stop.
 
 ```go
 func Job(ctx context.Context, d time.Duration) {
@@ -564,9 +564,9 @@ func Job(ctx context.Context, d time.Duration) {
 }
 ```
 
-In this setup, the context should be derived from a base context, which gets canceled when a SIGTERM is received. This way, at least we know the task won’t be interrupted unexpectedly, even if it's right at program termination.
+In this setup, the context should be derived from a base context, which gets canceled when a SIGTERM is received. This way, at least we know the task won't be interrupted unexpectedly, even if it happens right at program termination.
 
-_But this doesn't completely solve the problem, what if we need to stop the goroutine almost immediately whenever we want? This is discussed in [Avoid `time.Sleep()`, It's Not Context-Aware and Can't Be Interrupted](#avoid-timesleep-its-not-context-aware-and-cant-be-interrupted))_
+_But this doesn't completely solve the problem. What if we need to stop the goroutine almost immediately whenever we want? This is discussed in [Avoid `time.Sleep()`, It's Not Context-Aware and Can't Be Interrupted](#avoid-timesleep-its-not-context-aware-and-cant-be-interrupted)._
 
 Now, consider another scenario where a goroutine could be stuck forever:
 
@@ -581,21 +581,21 @@ jobs := make(chan int)
 go worker(jobs)
 ```
 
-You might think it's simple to determine when the routine finishes, just close the jobs channel. 
+You might think it's simple to determine when the routine finishes: just close the jobs channel.
 
-But when exactly is the jobs channel closed? If there’s a mistake and we don’t `close` the channel and return from the function, the goroutine hangs indefinitely, leading to a memory leak.
+But when exactly is the jobs channel closed? If there's a mistake and we don't `close` the channel and return from the function, the goroutine hangs indefinitely, leading to a memory leak.
 
-So, it’s important to make it obvious when goroutines start and stop, and to pass context to processes that run for a long time. 
+So it's important to make it obvious when goroutines start and stop, and to pass context to processes that run for a long time.
 
 ### Avoid `time.Sleep()`, It's Not Context-Aware and Can't Be Interrupted
 
 Using `time.Sleep()` might seem like a simple solution when you want to pause execution in your Go app, but it comes with a significant drawback: it's not context-aware and can't be interrupted.
 
-Let's say you've got an application that's in the process of shutting down. 
+Let's say you have an application that's in the process of shutting down.
 
-If there's a function that's currently sleeping due to `time.Sleep()`, we can't just wake it up and tell it to stop what it's doing. It will wake up on its own, start executing the next lines of code, and only then might it realize, "Oh, I should stop," because the rest of the application is shutting down. 
+If there's a function that's currently sleeping because of `time.Sleep()`, we can't just wake it up and tell it to stop what it's doing. It will wake up on its own, start executing the next lines of code, and only then might it realize, "Oh, I should stop," because the rest of the application is shutting down.
 
-Here’s a personal "anecdote", I've actually made this mistake myself and it turned into a pretty good learning experience:
+Here's a personal anecdote: I've actually made this mistake myself, and it turned into a pretty good learning experience:
 
 ```go
 func doJob(d time.Duration) {
@@ -613,7 +613,7 @@ func doJob() {
 }
 ```
 
-In these loops, the function does some work, pauses for, let’s say, 5 seconds with `time.Sleep()`, and then continues. The problem is, these loops can’t be stopped by a context cancellation. 
+In these loops, the function does some work, pauses for, let's say, 5 seconds with `time.Sleep()`, and then continues. The problem is that these loops can't be stopped by context cancellation.
 
 A better way is to make your functions respect the context:
 
@@ -627,19 +627,19 @@ func doWork(ctx context.Context, d time.Duration) {
             time.Sleep(d)
         }
 
-        ... 
+        ...
     }
 }
 ```
 
-This version is a bit more verbose, but now our job respects the context. For example, if a shutdown signal is sent, the function checks the context and can stop immediately if it's done:
+This version is a bit more verbose, but now our job respects the context. For example, if a shutdown signal is sent, the function checks the context and can stop if it's done:
 
 1. -> doWork -> sleep -> shutdown -> ctx.Done() -> out.
 2. -> doWork -> shutdown -> sleep -> ctx.Done() -> out
 
-There's still a catch. 
+There's still a catch.
 
-We have to wait out the sleep duration, which could be up to 5 seconds or possibly even longer, depending on how the delays are set up in the job. This isn't ideal if you need the function to be able to respond instantly to a shutdown command. 
+We have to wait out the sleep duration, which could be up to 5 seconds or possibly even longer, depending on how the delays are set up in the job. This isn't ideal if you need the function to respond instantly to a shutdown command.
 
 So while this approach is better, it's not perfect.
 
@@ -661,10 +661,10 @@ func doWork(ctx context.Context, d time.Duration) {
 }
 ```
 
-This strategy is simple and gets the job done, but it's not without its flaws. 
+This strategy is simple and gets the job done, but it's not without its flaws.
 
-- It creates a new timer channel each time it runs through the loop. This can lead to unnecessary allocations. 
-- Also, there’s a potential issue with short-term memory leaks, something the Go community often points out. If the function exits because of **ctx.Done()** before the timer runs out, that time.After timer is still ticking in the background until it completes and that's not ideal.
+- It creates a new timer channel each time it runs through the loop. This can lead to unnecessary allocations.
+- There is also a potential issue with short-term memory leaks, something the Go community often points out. If the function exits because of **ctx.Done()** before the timer runs out, that `time.After` timer is still ticking in the background until it completes, and that's not ideal.
 
 Now, we might consider a slightly more complex solution that handles timers more efficiently:
 
@@ -688,23 +688,23 @@ func doWork(ctx context.Context, d time.Duration) {
 }
 ```
 
-Here, we're using a single timer and resetting it each cycle, which is more efficient. When the context signals done, it’s important to stop the timer to prevent any leaks.
+Here, we're using a single timer and resetting it each cycle, which is more efficient. When the context signals done, it's important to stop the timer to prevent any leaks.
 
-If the timer has already been stopped, we ensure that the channel is cleared by receiving from `delay.C`. 
+If the timer has already been stopped, we ensure that the channel is cleared by receiving from `delay.C`.
 
 > "Why not just Ticker?"
 
 Tickers are indeed a cleaner solution for certain scenarios.
 
-While timers are typically used for one-off events, tickers are designed to handle repeated events. However, one of the nuances of using a ticker is that it doesn’t pause to check if the previous task has finished and it will keep ticking according to the set interval.
+While timers are typically used for one-off events, tickers are designed to handle repeated events. However, one nuance of using a ticker is that it doesn't pause to check if the previous task has finished; it keeps ticking according to the set interval.
 
 For instance, if we set a `Ticker` for 1 minute but our task takes 2 minutes, the `Ticker` will still send to the channel after one minute, regardless. This means as soon as our longer task finishes, the Ticker **immediately** triggers the task to start again without delay.
 
 > "Can we reset the Ticker after each task completes to avoid overlapping tasks?"
 
-The answer is... maybe not. 
+The answer is... maybe not.
 
-Let’s walk through a scenario to illustrate this:
+Let's walk through a scenario to illustrate this:
 
 ```go
 func doWork(ctx context.Context, d time.Duration) {
@@ -724,7 +724,7 @@ func doWork(ctx context.Context, d time.Duration) {
 }
 ```
 
-In this setup, even though we reset the ticker after `workIn2Minute()` completes, the ticker’s tick might already be sent to the channel while the task was running. This can cause the next task to start immediately, which isn’t what we want.
+In this setup, even though we reset the ticker after `workIn2Minute()` completes, the ticker's tick might already have been sent to the channel while the task was running. This can cause the next task to start immediately, which isn't what we want.
 
 Now, consider changing the placement of the job:
 
@@ -747,15 +747,15 @@ func doWork(ctx context.Context, d time.Duration) {
 }
 ```
 
-Now, the `workIn2Minute` function is executed after the delay, but again, this isn't working because the tick has already been sent to the channel while the `workIn2Minute` is being executed. So, we need to `delay.Stop()` the ticker before executing the task and then reset it after the task is completed. However, this brings us back to our Timer solution.
+Now, the `workIn2Minute` function is executed after the delay, but again, this doesn't work because the tick has already been sent to the channel while `workIn2Minute` is running. So we need to `delay.Stop()` the ticker before executing the task and then reset it after the task is completed. However, this brings us back to our timer solution.
 
-Note that the timer also encounters this issue when the task is placed before the delay.
+Note that the timer also has this issue when the task is placed before the delay.
 
 ### Implement a Context-Aware `Sleep` Function
 
-The regular `time.Sleep()` doesn't care about context as we pointed out in the previous tip.
+The regular `time.Sleep()` doesn't care about context, as we pointed out in the previous tip.
 
-We've discussed a solution before, but it can be quite a bit to write every time you need it. So, how about we make a more user-friendly version that behaves like a `Sleep` function but also respects when the context is canceled?
+We've discussed a solution before, but it can be a lot to write every time you need it. So how about we make a more user-friendly version that behaves like a `Sleep` function but also respects when the context is canceled?
 
 We can create a kind of "fake" sleep function that halts if the context signals to do so:
 
@@ -773,7 +773,7 @@ func Sleep(ctx context.Context, d time.Duration) error {
 }
 ```
 
-This setup allows us to pause our Go code, but if something tells the context to stop, the sleep will end early, like this:
+This setup allows us to pause our Go code, but if something tells the context to stop, the sleep ends early, like this:
 
 ```go
 func Job(ctx context.Context) {
@@ -789,15 +789,15 @@ func Job(ctx context.Context) {
 }
 ```
 
-> "Wait, Why don't you handle the error of sleep()?"
+> "Wait, why don't you handle the error of sleep()?"
 
 Well, we could, but it's not necessary.
 
-most of the time, when the context is canceled, it’s not really about the sleep function messing up. It’s usually due to a larger issue in the program, which includes the sleep part but isn’t limited to it.
+Most of the time, when the context is canceled, it's not really about the sleep function messing up. It's usually due to a larger issue in the program, which includes the sleep part but isn't limited to it.
 
-If there are other steps after the sleep() in your code, and they're designed to listen to the context, they'll halt as well if the context is canceled.
+If there are other steps after `sleep()` in your code, and they're designed to listen to the context, they'll halt as well if the context is canceled.
 
-So, let’s simplify our `sleep` function to make it shorter and more direct:
+So, let's simplify our `sleep` function to make it shorter and more direct:
 
 ```diff
 - func Sleep(ctx context.Context, d time.Duration) error {
@@ -822,11 +822,11 @@ This way, the function is easier to use and integrate into various parts of your
 
 ### Prefer `chan struct{}` Over `chan bool` for Signaling Between Goroutines
 
-When we're working with goroutines and need to signal between them, we might wonder whether to use `chan bool` or `chan struct{}`. 
+When we're working with goroutines and need to signal between them, we might wonder whether to use `chan bool` or `chan struct{}`.
 
 > "Why prefer 'chan struct{}'?"
 
-So, `chan bool` can signal events too, right? It sends a boolean value, `true` or `false`, which might carry some specific meaning depending on how you set it up. But here's where it gets tricky:
+So, `chan bool` can signal events too, right? It sends a boolean value, `true` or `false`, which might carry some specific meaning depending on how you set it up. But here is where it gets tricky:
 
 ```go
 type JobDispatcher struct {
@@ -843,11 +843,11 @@ func NewJobDispatcher() *JobDispatcher {
 // Unclear: What does sending true or false mean?
 ```
 
-When you use this, it could be confusing. 
+When you use this, it could be confusing.
 
-Like, do you send true to start? Or does true mean stop? It's not always clear, and that can lead to some pausing moments when someone else tries to figure out your code or even when you come back to it after a while.
+For example, do you send `true` to start? Or does `true` mean stop? It's not always clear, and that can make someone pause when they try to figure out your code, or when you come back to it after a while.
 
-Now, let’s talk about chan `struct{}`, this type is used purely for signaling because the `struct{}` type doesn’t occupy any memory at all, just like saying: "Hey, something happened." without sending any actual data.
+Now, let's talk about `chan struct{}`. This type is used purely for signaling because the `struct{}` type doesn't occupy any memory at all. It is like saying, "Hey, something happened," without sending any actual data.
 
 ```go
 type JobDispatcher struct {
@@ -867,10 +867,10 @@ func (j *JobDispatcher) Start() {
 // Clear: Sending anything means "start the job"
 ```
 
-So what are the main advantages here? 
+So what are the main advantages here?
 
-- First off, since `struct{}` is zero size, sending a value over a chan `struct{}` doesn’t actually move any data across the channel, it’s just the signal. This is a subtle but nice memory optimization. 
-- When a dev sees chan `struct{}` in code, it’s immediately clear that this channel is used for signaling, which cuts down on confusion.
+- First, since `struct{}` is zero-size, sending a value over a `chan struct{}` doesn't actually move any data across the channel; it's just the signal. This is a subtle but nice memory optimization.
+- When a developer sees `chan struct{}` in code, it's immediately clear that this channel is used for signaling, which cuts down on confusion.
 
 The downside? 
 
@@ -884,11 +884,11 @@ func (j *JobDispatcher) Start() {
 }
 ```
 
-Closing the channel is a clear and effective way to broadcast a signal to multiple receivers that the job should start, all without sending any data
+Closing the channel is a clear and effective way to broadcast a signal to multiple receivers that the job should start, all without sending any data.
 
 ### Buffered Channels as Semaphores to Limit Goroutine Execution
 
-When we're looking to control **how many goroutines can access a particular resource at the same time**, using a semaphore is a good choice. We can simply create a semaphore using a buffered channel in Go. 
+When we want to control **how many goroutines can access a particular resource at the same time**, using a semaphore is a good choice. We can simply create a semaphore using a buffered channel in Go.
 
 The size of the channel dictates the number of goroutines that can run concurrently:
 
@@ -899,7 +899,7 @@ semaphore := make(chan struct{}, numTokens)
 Here's the basic flow:
 
 - A goroutine attempts to send a value into the channel, taking up one of the available slots.
-- Once the goroutine completes its task, it removes the value from the channel, freeing up that slot for another goroutine to use..
+- Once the goroutine completes its task, it removes the value from the channel, freeing up that slot for another goroutine to use.
 
 ```go
 var wg sync.WaitGroup
@@ -940,7 +940,7 @@ func (s Semaphore) Release() {
 }
 ```
 
-Using this custom Semaphore type simplifies how we manage resource access:
+Using this custom `Semaphore` type simplifies how we manage resource access:
 
 ```go
 func doSomething(semaphore *Semaphore) {
@@ -951,15 +951,15 @@ func doSomething(semaphore *Semaphore) {
 }
 ```
 
-Additionally, for more complex scenarios, you might want to look into the http://golang.org/x/sync/semaphore package, which offers a weighted semaphore implementation. 
+Additionally, for more complex scenarios, you might want to look into the http://golang.org/x/sync/semaphore package, which offers a weighted semaphore implementation.
 
-This is particularly useful when some tasks might require more resources than others, such as managing a pool of database connections where certain operations need multiple connections simultaneously. 
+This is particularly useful when some tasks require more resources than others, such as managing a pool of database connections where certain operations need multiple connections simultaneously.
 
 Weighted semaphores allow a single goroutine to **consume more than one slot at a time**.
 
 ### Optimize Multiple Calls with `singleflight`
 
-So, let’s say we got this function that pulls data from somewhere, and it’s not exactly quick, it takes about 3 seconds each time you call it:
+So, let's say we have this function that pulls data from somewhere, and it's not exactly quick. It takes about 3 seconds each time you call it:
 
 ```go
 func FetchExpensiveData() (int64, error) {
@@ -969,17 +969,17 @@ func FetchExpensiveData() (int64, error) {
 }
 ```
 
-The simluation function emits a different number after 10 seconds.
+The simulation function emits a different number after 10 seconds.
 
-Now, if we call this function 3 times back-to-back, we’re looking at waiting around 9 seconds.
+Now, if we call this function 3 times back-to-back, we're looking at waiting around 9 seconds.
 
-We might think using 3 goroutines could cut that down to about 3 seconds, but we’d still be running the function 3 times, and all for the same result. 
+We might think using 3 goroutines could cut that down to about 3 seconds, but we'd still be running the function 3 times, all for the same result.
 
-This is where the `singleflight` package can really change the game and it’s designed to ensure that no **matter how many times we call the function in those 3 seconds, it only actually runs once and returns the same result** to everyone who called it.
+This is where the `singleflight` package can help. It is designed to ensure that **no matter how many times we call the function in those 3 seconds, it only actually runs once and returns the same result** to everyone who called it.
 
-We can find it at http://golang.org/x/sync/singleflight. 
+We can find it at http://golang.org/x/sync/singleflight.
 
-Now, here’s how we can use it:
+Now, here's how we can use it:
 
 ```go
 var group singleflight.Group
@@ -995,35 +995,35 @@ func UsingSingleFlight(key string) {
 
 What happens here is pretty straightforward.
 
-We create a `singleflight.Group`, then you wrap your expensive function call inside the `group.Do()` method, which is clever. 
+We create a `singleflight.Group`, then wrap the expensive function call inside the `group.Do()` method.
 
 It checks if the same key has already been requested. If it has, it waits for the result of the original call and returns it to all the callers, not just the first one.
 
 And that's basically it.
 
-> "What's the purpose of the 'key' argument"
+> "What's the purpose of the 'key' argument?"
 
 It's what tells `singleflight` that multiple requests are actually asking for the same thing. So, it uses this key to check if it should run the function again or just wait and return the result of the ongoing operation.
 
 If you want to see how this plays out in real code, you can check it out here: https://go.dev/play/p/30kdFPsy2HR
 
-Basically, if the same function is called multiple times simultaneously, only one real call is made and the result from this single call is then shared among all the callers.
+Basically, if the same function is called multiple times simultaneously, only one real call is made, and the result from this single call is shared among all the callers.
 
-> "Why not using cache?"
+> "Why not use a cache?"
 
-Singleflight is not working as a cache, it's a way to get the result or call a function that highly be simultaneous run. 
+Singleflight does not work as a cache. It's a way to get a result or call a function when many calls are likely to happen at the same time.
 
-The function may not return any result, the example may leads to misunderstand that this is for expensive data but we just want to make sure that we fire that function once.
+The function may not return any result. The example may make it look like this is only for expensive data, but the main goal is to make sure we fire that function once.
 
-Like sending a `ping()` to a server and you wouldn’t cache the ping result, but you also don’t want to overload the server with multiple pings at the same time.
+For example, if you send a `ping()` to a server, you wouldn't cache the ping result, but you also don't want to overload the server with multiple pings at the same time.
 
 ### `sync.Once` Is the Best Way to Do Things Once
 
-So, we know how sometimes we need to make sure something only happens once in our app, even if we've got a ton of things running at the same time? 
+So, we know how sometimes we need to make sure something only happens once in our app, even if we have a lot of things running at the same time?
 
 Let's talk about that using `sync.Once`, which is extremely common for things like setting up a singleton.
 
-For example, we've got a config object, right? And we need to set it up just once and then use that same setup everywhere else in our app:
+For example, we have a config object, and we need to set it up just once and then use that same setup everywhere else in our app:
 
 ```go
 var instance *Config
@@ -1037,7 +1037,7 @@ func GetConfig() *Config {
 }
 ```
 
-But here's the catch, if a bunch of goroutines try to get this config all at the same time, and it hasn't been set up yet, you could end up running `loadConfig()` multiple times, which isn't what we want.
+But here's the catch: if a bunch of goroutines try to get this config at the same time, and it hasn't been set up yet, you could end up running `loadConfig()` multiple times, which isn't what we want.
 
 This is where `sync.Once` comes in:
 
@@ -1056,22 +1056,22 @@ func GetConfig() *Config {
 }
 ```
 
-We wrap the setup code in a function and pass it to `once.Do()` and this way, no matter how many goroutines are calling `GetConfig()` simultaneously, the `loadConfig()` function is guaranteed to only run once. 
+We wrap the setup code in a function and pass it to `once.Do()`. This way, no matter how many goroutines call `GetConfig()` simultaneously, the `loadConfig()` function is guaranteed to run only once.
 
 This ensures that everyone gets the same instance of `Config` without setting it up multiple times.
 
-Now, it's important to understand that `sync.Once` doesn't mean a function will run only once in the general sense, but rather that it will only execute once within the context of that specific `sync.Once` instance, this is a big difference.
+Now, it's important to understand that `sync.Once` doesn't mean a function will run only once in the general sense. It means the function will execute only once within the context of that specific `sync.Once` instance. This is a big difference.
 
-Here's the thing, if you try to use `sync.Once` again with a different function, it won't work, even if that new function hasn't been run with `sync.Once` before:
+Here's the thing: if you try to use `sync.Once` again with a different function, it won't work, even if that new function hasn't been run with `sync.Once` before:
 
 ```go
 o.Do(f1)
 o.Do(f2)
 ```
 
-The second function, `f2`, will just be ignored if `f1` has already run. That's because `sync.Once` isn't about the function, it's about the act of doing something just once, regardless of what that something is.
+The second function, `f2`, will be ignored if `f1` has already run. That's because `sync.Once` isn't about the function. It's about the act of doing something just once, regardless of what that something is.
 
-From Go version 1.21, the `sync` package provides expanded functionalities, which are quite useful. We now have `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues`. These new functions transform a standard function into a sync.Once-like function, ensuring that the function is executed just once, regardless of how many times it is called. 
+Starting in Go 1.21, the `sync` package provides expanded functionality, which is quite useful. We now have `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues`. These new functions transform a standard function into a sync.Once-like function, ensuring that the function is executed just once, regardless of how many times it is called.
 
 Here's how they are defined:
 
@@ -1081,7 +1081,7 @@ func OnceValue[T any](f func() T) func() T
 func OnceValues[T1, T2 any](f func() (T1, T2)) func() (T1, T2)
 ```
 
-This addition is particularly useful when you need to return a value from a function that you intend to execute only once, and this can even include handling errors:
+This addition is particularly useful when you need to return a value from a function that you intend to execute only once. This can even include handling errors:
 
 ```go
 var GetConfig = sync.OnceValues(func() (Config, error) {
@@ -1089,14 +1089,14 @@ var GetConfig = sync.OnceValues(func() (Config, error) {
 })
 ```
 
-`GetConfig` will only be executed once to retrieve configurations, potentially including an error, and after its first call, any further calls to `GetConfig` will return the same results that were obtained the first time and the function itself won't actually run again.
+`GetConfig` will only be executed once to retrieve configuration, potentially including an error. After its first call, any further calls to `GetConfig` will return the same results that were obtained the first time, and the function itself won't actually run again.
 
-Let's dive a bit into how `sync.Once` works internally, a `sync.Once` keeps track of two things:
+Let's dive a bit into how `sync.Once` works internally. A `sync.Once` keeps track of two things:
 
 - An atomic counter, which can be either 0 or 1.
 - A mutex, which is used to protect the slower operations.
 
-Now, let me break down the structure of sync.Once for you:
+Now, let me break down the structure of `sync.Once` for you:
 
 ```go
 type Once struct {
@@ -1107,9 +1107,9 @@ type Once struct {
 
 **The fast path**
 
-When you call `once.Do(f)`, the first thing it does is check the atomic counter and if the counter is at 0, it indicates that the function hasn't been run yet. 
+When you call `once.Do(f)`, the first thing it does is check the atomic counter. If the counter is at 0, it indicates that the function hasn't been run yet.
 
-This check allows any subsequent calls to bypass the function execution if it’s already been done, which speeds things up considerably.
+This check allows any subsequent calls to bypass the function execution if it's already been done, which speeds things up considerably.
 
 **The slow path**
 
@@ -1129,23 +1129,23 @@ func(o *Once) doSlow(f func()) {
 
 - `o.m.Lock()`: This locks the mutex to ensure that only one goroutine can execute the following steps at any given time.
 - `o.done.Load() == 0`: Once it has the lock, it checks the counter again just to be sure that no other goroutine has run the function in the meantime.
-- `o.done.Store(1)`: After the function has been executed, it updates the counter to 1, indicating that the function has been run and shouldn’t be run again.
+- `o.done.Store(1)`: After the function has been executed, it updates the counter to 1, indicating that the function has been run and shouldn't be run again.
 
 > "Why slow path and fast path?"
 
-The reason we have both a fast path and a slow path is to balance speed and safety. 
+The reason we have both a fast path and a slow path is to balance speed and safety.
 
-The fast path allows the system to bypass the mutex lock and the function execution if it’s already been done, which is much faster. 
+The fast path allows the system to bypass the mutex lock and the function execution if it's already been done, which is much faster.
 
-The slow path, however, ensures that the function is executed safely the first time without interference from other goroutines. This initial setup might be a bit slower, but once it’s done, every call to `once.Do()` is quick, which is good in the long run.
+The slow path, however, ensures that the function is executed safely the first time without interference from other goroutines. This initial setup might be a bit slower, but once it's done, every call to `once.Do()` is quick, which is good in the long run.
 
 ### Manage Multiple Goroutines with `errgroup`
 
 When we're dealing with multiple goroutines, managing them and their errors can get a bit tricky.
 
-We might already be familiar with `sync.WaitGroup` for handling multiple goroutines. But, there's another tool called `errgroup` that offers some neat features to simplify this process even more.
+We might already be familiar with `sync.WaitGroup` for handling multiple goroutines. But there is another tool called `errgroup` that offers some neat features to simplify this process even more.
 
-First, you'll need to grab the package:
+First, you need to grab the package:
 
 ```go
 $ go get -u golang.org/x/sync
@@ -1174,15 +1174,15 @@ func main() {
 }
 ```
 
-In this snippet, we're fetching 2 pages simultaneously. The `g.Wait()` method is the method we want to focus on, it waits for all the goroutines to finish. If any of the goroutines encounter an error, `g.Wait()` will return the first error it encounters.
+In this snippet, we're fetching 2 pages simultaneously. The `g.Wait()` method is the method we want to focus on. It waits for all the goroutines to finish. If any of the goroutines encounters an error, `g.Wait()` will return the first error it encounters.
 
 Errgroup simplifies the process of managing multiple goroutines and handling errors that might occur during their execution.
 
 Let's break down the key points:
 
 - Start each task in its own goroutine using `g.Go()` and pass it a function that does the work.
-- Use `g.Wait()` to wait for all goroutines to complete, it returns the first error encountered among the goroutines, not all errors.
-- Errgroup works seamlessly with context. By using errgroup.WithContext(), if any goroutine fails and returns an error, the context is automatically canceled.
+- Use `g.Wait()` to wait for all goroutines to complete. It returns the first error encountered among the goroutines, not all errors.
+- Errgroup works seamlessly with context. By using `errgroup.WithContext()`, if any goroutine fails and returns an error, the context is automatically canceled.
 
 **What's going on inside**
 
@@ -1201,10 +1201,10 @@ type Group struct {
 ```
 
 - `wg sync.WaitGroup`: This is used to wait for all goroutines to finish their tasks.
-- `errOnce sync.Once`: Make sure the first error captured is done in a thread-safe manner, meaning no race conditions when setting the error.
-- `sema chan struct{}`: A semaphore controls the number of goroutines that can run at the same time. We can even set a limit on the number of concurrent goroutines with errg.SetLimit().
+- `errOnce sync.Once`: Makes sure the first error captured is stored in a thread-safe manner, meaning no race conditions when setting the error.
+- `sema chan struct{}`: A semaphore controls the number of goroutines that can run at the same time. We can even set a limit on the number of concurrent goroutines with `errg.SetLimit()`.
 
-Whenever you use g.Go(), you're essentially adding a new task to a group. This task is a function that doesn't take any arguments but returns an error. The number of concurrent goroutines that can run at the same time is managed by a [semaphore]((#buffered-channels-as-semaphores-to-limit-goroutine-execution)), which helps to control the execution and prevent too many tasks from running simultaneously.
+Whenever you use `g.Go()`, you're essentially adding a new task to a group. This task is a function that doesn't take any arguments but returns an error. The number of concurrent goroutines that can run at the same time is managed by a [semaphore](#buffered-channels-as-semaphores-to-limit-goroutine-execution), which helps control execution and prevents too many tasks from running simultaneously.
 
 Here's what the implementation looks like:
 
@@ -1230,7 +1230,7 @@ func (g *Group) Go(f func() error) {
 }
 ```
 
-In this setup, error handling is centralized through the `errOnce` mechanism, which makes sure that only the first error is recorded. If an error occurs, and a context is provided, it triggers a cancellation signal of that context. 
+In this setup, error handling is centralized through the `errOnce` mechanism, which makes sure that only the first error is recorded. If an error occurs and a context is provided, it triggers a cancellation signal for that context.
 
 This setup means that as soon as one goroutine fails, it can prevent unnecessary work by other goroutines.
 
@@ -1254,17 +1254,17 @@ func (g *Group) Wait() error {
 
 ```
 
-The `done()` function plays an important role, it not only signals the `WaitGroup` that a goroutine has completed, but it also manages the semaphore to make sure that the limits on running goroutines are respected.
+The `done()` function plays an important role. It not only signals the `WaitGroup` that a goroutine has completed, but also manages the semaphore to make sure the limits on running goroutines are respected.
 
-It's also good to remember that using goroutines might not always be the best solution, especially for tasks that are quick to complete. Sometimes, running tasks sequentially, one after the other, might turn out to be faster and easier to manage.
+It's also good to remember that using goroutines might not always be the best solution, especially for tasks that are quick to complete. Sometimes, running tasks sequentially might turn out to be faster and easier to manage.
 
 ### Adjusting `GOMAXPROCS` for Containerized Environments (Kubernetes, Docker, etc.)
 
 Changing `GOMAXPROCS` for containerized environments like Kubernetes or Docker is something you might need to consider.
 
-**But, what is GOMAXPROCS?**
+**But what is GOMAXPROCS?**
 
-By default, Go can execute up to 10,000 threads concurrently, but the actual number running in parallel depends on a critical setting: GOMAXPROCS. It's not just about being concurrent; it's about actual parallel execution.
+By default, Go can execute up to 10,000 threads concurrently, but the actual number running in parallel depends on a critical setting: GOMAXPROCS. It's not just about concurrency; it's about actual parallel execution.
 
 By default, `GOMAXPROCS` is set to the number of logical CPU cores available to your OS, as reported by `runtime.NumCPU()`:
 
@@ -1277,27 +1277,27 @@ fmt.Println(runtime.NumCPU())
 // 8
 ```
 
-For example, on my `MacOS`, that's 8 cores. This means that by default, Go is configured to run up to 8 threads simultaneously.
+For example, on my macOS machine, that's 8 cores. This means that by default, Go is configured to run up to 8 threads simultaneously.
 
 #### Running Go in Containers (Docker & Kubernetes)
 
-In a containerized setup like in Kubernetes, you can defintely limit the CPU usage for each container. 
+In a containerized setup like Kubernetes, you can definitely limit CPU usage for each container.
 
 When you set these limits, you're essentially telling the container, _"This is your portion of the CPU resources."_ For example, a limit of 250m means 1/4 of a core, and a limit of 1 means 1 full core.
 
-Sadly, Go doesn't automatically recognize this, it still sees and uses the total number of CPU cores available on the host machine (or node), not just the slice allocated to the container. 
+Sadly, Go doesn't automatically recognize this. It still sees and uses the total number of CPU cores available on the host machine, or node, not just the slice allocated to the container.
 
 This can lead to situations where a Go program tries to use more CPU cores than it's supposed to, based on the container's settings.
 
-> ""But why? I thought it was better when using more CPUs."
+> "But why? I thought it was better when using more CPUs."
 
 Well, it might seem like using more CPUs would always be better, but there are a few reasons why this isn't necessarily the case:
 
-1. Context switching: When there are more threads than CPU cores, the OS has to switch between these threads more often and this switching can slow things down as it takes time and resources to handle.
+1. Context switching: When there are more threads than CPU cores, the OS has to switch between these threads more often, and this switching can slow things down because it takes time and resources to handle.
 
-2. Inefficient scheduling: The Go scheduler might create more runnable goroutines than can actually be executed given the CPU constraints, this leads to contention for CPU time, where threads are essentially fighting over processing power.
+2. Inefficient scheduling: The Go scheduler might create more runnable goroutines than can actually be executed given the CPU constraints. This leads to contention for CPU time, where threads are essentially fighting over processing power.
 
-3. Inefficient use of CPU Bound: Go application are typically CPU bound, which means they perform best when each thread can run on its own CPU core without having to wait for others. 
+3. Inefficient use of CPU-bound work: Go applications are often CPU-bound, which means they perform best when each thread can run on its own CPU core without having to wait for others.
 
 If you have more `GOMAXPROCS` than CPU cores available, it forces the Go runtime to plan for more threads than there are cores, leading to inefficient execution of these CPU-bound tasks.
 
@@ -1305,7 +1305,7 @@ So, what can we do about it?
 
 #### The Solution
 
-For those who prefer a more hands-off strategy, the `uber-go/automaxprocs` package might be just what you need. 
+For those who prefer a more hands-off strategy, the `uber-go/automaxprocs` package might be just what you need.
 
 This library automatically adjusts `GOMAXPROCS` to match your container's CPU limit:
 
@@ -1319,13 +1319,13 @@ func main() {
 
 Otherwise, if you're familiar with your deployment or pod specifications, you might just set the `GOMAXPROCS` environment variable to match your CPU limit manually.
 
-However, from a DevOps perspective, it's generally better to [avoid setting CPU limits](https://home.robusta.dev/blog/stop-using-cpu-limits) while always specifying CPU requests.
+However, from a DevOps perspective, it's generally better to [avoid setting CPU limits](https://home.robusta.dev/blog/stop-using-cpu-limits) and always specify CPU requests instead.
 
-#### How Does it Work?
+#### How Does It Work?
 
-Turns out, when we set `resources.limits.cpu` for our pod, a component named Cgroups, or Control Groups, manages this for us. Cgroups are part of the Linux kernel and they help manage and prioritize resources like CPU, memory, and I/O bandwidth for groups of processes.
+It turns out that when we set `resources.limits.cpu` for our pod, a component named cgroups, or control groups, manages this for us. Cgroups are part of the Linux kernel, and they help manage and prioritize resources like CPU, memory, and I/O bandwidth for process groups.
 
-Here’s a bit of code to give you an idea:
+Here's a bit of code to give you an idea:
 
 ```go
 type CGroup struct {
@@ -1337,7 +1337,7 @@ func NewCGroup(path string) *CGroup {
     return &CGroup{path: path}
 }
 
-// CGroups is a map that associated each CGroup with its subsystem name
+// CGroups is a map that associates each CGroup with its subsystem name
 type CGroups map[string]*CGroup
 ```
 
@@ -1345,7 +1345,7 @@ We ran some tests in our staging cluster to see how this works in practice, and 
 
 ```bash
 # no limit
-maxprocs: Leaving GOMAXPROCS=4: CPU quote undefined
+maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined
 
 # 200m = 1/5 core
 maxprocs: Updating GOMAXPROCS=1: using minimum allowed GOMAXPROCS
@@ -1361,7 +1361,7 @@ As you can see, without a set limit, it uses up to 4 cores of our worker node. T
 
 So, what's the deal with uber-go/automaxprocs and cgroups?
 
-We might have guessed by now that the `automaxprocs` package relies on Cgroups to do its job and here's the process:
+We might have guessed by now that the `automaxprocs` package relies on cgroups to do its job. Here's the process:
 
 1. Checking GOMAXPROCS in the Environment
 
@@ -1375,11 +1375,11 @@ if max, exists := os.LookupEnv(_maxProcsKey); exists {
 
 2. CPU quota retrieval
 
-If GOMAXPROCS isn’t set, the package then tries to find out the CPU quota for the current process, it does this by looking up the Linux cgroups to see if there’s a CPU quota set for the container.
+If GOMAXPROCS isn't set, the package then tries to find the CPU quota for the current process. It does this by looking up the Linux cgroups to see if there's a CPU quota set for the container.
 
 > "But what happens internally?"
 
-It checks whether the system uses Cgroups v1 or v2 by looking at the filesystem and reading specific files. While you might not need to worry about the details, it looks at `/proc/self/mountinfo` for mount points and `/proc/self/cgroup` for cgroup membership.
+It checks whether the system uses cgroups v1 or v2 by looking at the filesystem and reading specific files. While you might not need to worry about the details, it looks at `/proc/self/mountinfo` for mount points and `/proc/self/cgroup` for cgroup membership.
 
 - For cgroups v1, it reads parameters from files in the cgroup filesystem, usually mounted under /sys/fs/cgroup. It looks for `cpu.cfs_quota_us` and `cpu.cfs_period_us` to calculate the CPU quota.
 - For cgroups v2, it checks the `cpu.max` file in the cgroup directory, which lists both the quota and period on a single line.
@@ -1392,15 +1392,15 @@ If no quota is defined, it leaves GOMAXPROCS at its default setting.
 
 ### `sync.Pool` but Make It Typed-Safe with Generics
 
-So, let's move to `sync.Pool` and for those who might not be familiar, `sync.Pool` is a feature from the Go standard library that's all about reusing objects. 
+So, let's move to `sync.Pool`. For those who might not be familiar, `sync.Pool` is a feature from the Go standard library that's all about reusing objects.
 
 This is pretty handy because it helps cut down on the number of memory allocations, which is great for boosting performance.
 
-Imagine you've got a super fast printer that needs to churn out 100 pages per minute. It wouldn't make much sense for the printer to run to the storeroom to grab new ink and paper for every single page, right? 
+Imagine you've got a super-fast printer that needs to churn out 100 pages per minute. It wouldn't make much sense for the printer to run to the storeroom to grab new ink and paper for every single page, right?
 
-Instead, think of it like this: the printer has a tray loaded with about 100 sheets of paper that it can use **repeatedly**. You've got a set batch of items on hand, ready to be used over and over, saving you both time and resources. 
+Instead, think of it like this: the printer has a tray loaded with about 100 sheets of paper that it can use **repeatedly**. You have a set batch of items on hand, ready to be used over and over, saving you both time and resources.
 
-Here’s a little snippet to show what that might look like in code:
+Here's a little snippet to show what that might look like in code:
 
 ```go
 var paperPool = sync.Pool{
@@ -1421,13 +1421,13 @@ func printPage() {
 
 But there are a few things to notice:
 
-- `sync.Pool` doesn’t have a fixed size, which means you can keep adding and retrieving items without any hard limits.
-- Once you put an object back in the pool then forget about it because it might get removed or collected by the garbage collector.
+- `sync.Pool` doesn't have a fixed size, which means you can keep adding and retrieving items without any hard limits.
+- Once you put an object back in the pool, forget about it because it might get removed or collected by the garbage collector.
 - Since objects can have states, it's crucial to clear or reset their state before putting them back in the pool or right after taking them out.
 
-#### Typed-safe Pool
+#### Type-safe Pool
 
-We already know that `sync.Pool` uses the empty `interface{}` for storing and retrieving items. This is pretty flexible but doesn't provide type safety, we can wrap this process to make it type-safe:
+We already know that `sync.Pool` uses the empty `interface{}` for storing and retrieving items. This is pretty flexible, but it doesn't provide type safety. We can wrap this process to make it type-safe:
 
 ```go
 type Pool[T any] struct {
@@ -1445,7 +1445,7 @@ func NewPool[T any](newF func() T) *Pool[T] {
 }
 ```
 
-With this setup, we've created a pool that's tied to a specific type, T, although it still uses `interface{}` under the hood. The magic happens in how we handle getting and putting data in a type-safe manner:
+With this setup, we've created a pool that's tied to a specific type, `T`, although it still uses `interface{}` under the hood. The useful part is how we handle getting and putting data in a type-safe manner:
 
 ```go
 func (p *Pool[T]) Get() T {
@@ -1457,13 +1457,13 @@ func (p *Pool[T]) Put(x T) {
 }
 ```
 
-When we retrieve data from the pool, we simply convert the interface to type T. You might wonder why we're not checking for errors during this conversion.
+When we retrieve data from the pool, we simply convert the interface to type `T`. You might wonder why we're not checking for errors during this conversion.
 
 > "Why don't we check for errors in conversion?"
 
 Here's the thing: the generic layer we've added ensures the type for us, so there's no need to worry about the conversion failing.
 
-The `sync.Pool` will only ever contain instances of type T, so the assertion `p.internal.Get().(T)` is safe and won't cause a panic under normal scenarios. This solution keeps our code clean and efficient.
+The `sync.Pool` will only ever contain instances of type `T`, so the assertion `p.internal.Get().(T)` is safe and won't cause a panic under normal scenarios. This solution keeps our code clean and efficient.
 
 ### Making a Type with Built-in Locking (`sync.Mutex` Embedding)
 
@@ -1488,7 +1488,7 @@ func (s *MyStruct) DoSomething() {
 
 This pattern, while effective, can lead to code that's littered with `mu.Lock()` and `mu.Unlock()` calls, which can make it harder to read and maintain.
 
-A neater way to handle this is by embedding `sync.Mutex` directly into your struct, this allows you to call `Lock` and `Unlock` directly on instances of the struct:
+A neater way to handle this is by embedding `sync.Mutex` directly into your struct. This allows you to call `Lock` and `Unlock` directly on instances of the struct:
 
 ```go
 type MyStruct struct {
@@ -1505,15 +1505,15 @@ func (s *MyStruct) DoSomething() {
 }
 ```
 
-This solution simplifies the syntax and makes your locking mechanism less intrusive in your method implementations. However, there's a caveat, if `MyStruct` is exported (i.e., it starts with an uppercase letter), embedding `sync.Mutex` directly also makes the `Lock` and `Unlock` methods publicly accessible.
+This solution simplifies the syntax and makes your locking mechanism less intrusive in your method implementations. However, there's a caveat: if `MyStruct` is exported, meaning it starts with an uppercase letter, embedding `sync.Mutex` directly also makes the `Lock` and `Unlock` methods publicly accessible.
 
 Therefore, this technique is generally more suited for types that are internal to a package, where exposing locking mechanisms isn't a concern. For public types, you might still prefer to keep the mutex as a private field to control the exposure of your synchronization primitives.
 
 **The Generic Trick**
 
-While checking some coding concepts and resources, I came across a really interesting method that caught my attention. 
+While checking some coding concepts and resources, I came across a really interesting method that caught my attention.
 
-It involves using generics in Go to create a type-safe, lockable structure, here’s how you can implement it:
+It involves using generics in Go to create a type-safe, lockable structure. Here's how you can implement it:
 
 ```go
 type Lockable[T any] struct {
@@ -1536,7 +1536,7 @@ func (l *Lockable[T]) GetValue() T {
 }
 ```
 
-This structure allows us to wrap any type with a mutex, making sure that the data is safe from concurrent access issues. We can use this generic type in a couple of ways, either directly or by defining a new type based on it:
+This structure allows us to wrap any type with a mutex, making sure the data is safe from concurrent access issues. We can use this generic type in a couple of ways: either directly or by defining a new type based on it:
 
 ```go
 // directly use
@@ -1551,7 +1551,7 @@ func main() {
 type IntLockable Lockable[int]
 ```
 
-> "why we don’t just embed the type T directly instead of using Value T"
+> "Why don't we just embed the type `T` directly instead of using `Value T`?"
 
 The reason is that Go currently does not support embedding a type parameter directly within a struct. 
 
@@ -1563,15 +1563,15 @@ Normally, when we send something over a channel, the code sits there and waits f
 ch <- value // blocking operation
 ```
 
-But what if we’re in a situation where we don’t want to wait around? 
+But what if we're in a situation where we don't want to wait around?
 
-Maybe we’ve got a system where we’re managing resources with a semaphore, and we’ve got a function like `TryAcquire()` that should immediately tell we if it can’t acquire a resource because they’re all in use.
+Maybe we have a system where we're managing resources with a semaphore, and we have a function like `TryAcquire()` that should immediately tell us if it can't acquire a resource because all resources are in use.
 
 _[Buffered Channels as Semaphores to Limit Goroutine Execution](#buffered-channels-as-semaphores-to-limit-goroutine-execution)_
 
-Let’s take a look at how something like this is handled in practice, using the `errgroup` package as an example. This package uses a simple semaphore mechanism internally to limit the number of goroutines that can run at once.
+Let's take a look at how something like this is handled in practice, using the `errgroup` package as an example. This package uses a simple semaphore mechanism internally to limit the number of goroutines that can run at once.
 
-Here’s what happens if the semaphore is full and you try to start a new goroutine:
+Here's what happens if the semaphore is full and you try to start a new goroutine:
 
 ```go
 func (g *Group) TryGo(f func() error) bool {
@@ -1587,18 +1587,18 @@ func (g *Group) TryGo(f func() error) bool {
 }
 ```
 
-The magic happens in the `select{}` statement. Usually, `select{}` is used to wait on multiple channel operations, but here it’s used in a clever way to attempt a non-blocking send:
+The key part is the `select{}` statement. Usually, `select{}` is used to wait on multiple channel operations, but here it's used in a clever way to attempt a non-blocking send:
 
-- `case g.sem <- token{}`: This line tries to send a token to the semaphore channel g.sem. If there’s space in the channel (meaning it’s not at its capacity), the token is sent successfully, and the function proceeds.
-- `default`: This part kicks in if the g.sem channel is already full. Instead of blocking and waiting for space to free up, it just moves straight to the default case.
+- `case g.sem <- token{}`: This line tries to send a token to the semaphore channel `g.sem`. If there's space in the channel, meaning it's not at capacity, the token is sent successfully, and the function proceeds.
+- `default`: This part kicks in if the `g.sem` channel is already full. Instead of blocking and waiting for space to free up, it moves straight to the default case.
 
-The default case in a `select` statement is a tricky path since it executes immediately if no other case is ready. In this scenario, it lets us know right away by returning false, signaling that we couldn’t start a new goroutine because we’ve hit the limit we set for active ones.
+The default case in a `select` statement is a tricky path since it executes immediately if no other case is ready. In this scenario, it lets us know right away by returning `false`, signaling that we couldn't start a new goroutine because we've hit the limit we set for active ones.
 
 ## Error Handling
 
 ### Only Define Errors (`var ErrXXX = errors.New`) When It's Necessary for Your Client
 
-It's pretty common to see a lot of error definitions in codebases, each one with a detailed name, verbose description. But is it always necessary? 
+It's pretty common to see a lot of error definitions in codebases, each one with a detailed name and verbose description. But is it always necessary?
 
 Let's think about that:
 
@@ -1610,23 +1610,23 @@ var (
 )
 ```
 
-In these cases, developers are trying to keep every possible error under tight control, they want to account for every scenario that could go wrong in their business logic. 
+In these cases, developers are trying to keep every possible error under tight control. They want to account for every scenario that could go wrong in their business logic.
 
 But honestly, this approach can be overkill for a few reasons:
 
-- It becomes a burden for anyone maintaining the code, just imagine having to remember or constantly look up what each error means.
+- It becomes a burden for anyone maintaining the code. Just imagine having to remember or constantly look up what each error means.
 - It might seem like a good idea to you now, but give it a few weeks or months, and even you might forget why you created some of these errors.
 - Sometimes, our client doesn't even need to know about these errors. For example, if your frontend already limits the input price range, why bother defining errors like `ErrPriceTooHigh` or `ErrPriceTooLow`? A general error message would be enough.
 
 Only someone bypassing the frontend and hitting the API directly might run into these, and typically, that's not a behavior we want to support.
 
-This principle of not over-defining errors isn't just for client-server interactions. 
+This principle of not over-defining errors isn't just for client-server interactions.
 
-It applies to internal code as well, let's say we're unable to publish a message to our message queue. Before we rush to create an `ErrPublishMessage`, consider whether it's really necessary. Will anyone need to catch this specific error?
+It applies to internal code as well. Let's say we're unable to publish a message to our message queue. Before we rush to create an `ErrPublishMessage`, consider whether it's really necessary. Will anyone need to catch this specific error?
 
 **So, what's the recommended approach in these cases?**
 
-If we're not expecting out clients (whether they're other parts of our code or external users of our library) to take specific actions based on different types of errors, it's usually best to keep things simple. 
+If we're not expecting our clients, whether they're other parts of our code or external users of our library, to take specific actions based on different types of errors, it's usually best to keep things simple.
 
 Let me walk you through a couple of strategies that might work better in these scenarios. One simple way is to return a basic error when something goes wrong, like this:
 
@@ -1639,7 +1639,7 @@ func Sale(price int) error {
 }
 ```
 
-This method is quite direct. But if you need to include more context in your error message, `fmt.Errorf` might be a better choice. 
+This method is quite direct. But if you need to include more context in your error message, `fmt.Errorf` might be a better choice.
 
 It lets you format the error message with dynamic data, which can be really helpful for understanding the issue at a glance:
 
@@ -1662,20 +1662,20 @@ type Error struct {
 }
 ```
 
-But then, when should you actually go ahead and define specific error variables? 
+But then, when should you actually define specific error variables?
 
 Well, there are certain situations where this makes perfect sense. For instance, when your application logic requires different reactions based on the type of error:
 
 - You might want to retry an operation if a particular error occurs.
 - Specific errors could trigger different logging mechanisms, warnings for some, and errors for others.
-- Perhaps you need to show a popup, like running out of funds, please deposit more money.
+- Perhaps you need to show a popup, such as "running out of funds, please deposit more money."
 - ...
 
 In these cases, having predefined error variables can help you manage these different scenarios better.
 
 ### Make Your Errors Clear with `fmt.Errorf`, Don't Just Leave Them Bare
 
-In Go, unlike some other languages where you might throw exceptions, errors are treated just as values. This means we usually return errors rather than throwing them:
+In Go, unlike some other languages where you might throw exceptions, errors are treated as values. This means we usually return errors rather than throwing them:
 
 ```go
 func doOperation() error {
@@ -1688,11 +1688,11 @@ func doOperation() error {
 }
 ```
 
-Just returning errors like this, without any context, can sometimes frustrate the person trying to debug the code and try to figure out where exactly things went wrong. 
+Returning errors like this, without any context, can frustrate the person trying to debug the code and figure out where exactly things went wrong.
 
 #### Using fmt.Errorf with %w
 
-Now, with Go 1.13, there's a better way to add more information to errors while keeping the original error intact. This is done using `fmt.Errorf` with the `%w` verb, which wraps the error. 
+Since Go 1.13, there's a better way to add more information to errors while keeping the original error intact. This is done using `fmt.Errorf` with the `%w` verb, which wraps the error.
 
 This allows you to maintain the underlying error while providing more context:
 
@@ -1707,7 +1707,7 @@ func doSomething() error {
 }
 ```
 
-> "I still don’t see the benefit, it’s just an error either way."
+> "I still don't see the benefit. It's just an error either way."
 
 Well, let's look at a practical example to see why it's beneficial:
 
@@ -1726,9 +1726,9 @@ Which of these error messages gives you more information?
 - "retrieve resource: authorization check: fetch user from db: mongo: no documents in result"
 - "retrieve resource: mongo: no documents in result"
 
-The first one tells you right away that the issue is with fetching the user from the database. The second one is vague—it's unclear whether the problem is with the user or the resou
+The first one tells you right away that the issue is with fetching the user from the database. The second one is vague. It's unclear whether the problem is with the user or the resource.
 
-By wrapping errors and adding these layers of information, you don't just get a clearer picture of what went wrong, you also get to use tools like `errors.Is()` to check for specific types of errors:
+By wrapping errors and adding these layers of information, you don't just get a clearer picture of what went wrong. You also get to use tools like `errors.Is()` to check for specific types of errors:
 
 ```go
 func readConfig(path string) error {
@@ -1743,13 +1743,13 @@ func main() {
 }
 ```
 
-Always make your errors as clear as possible, it's the rope the helps us when things go wrong.
+Always make your errors as clear as possible. They help us when things go wrong.
 
 ### Enhancing Error Handling: Wrapping vs. Joining Errors in Go
 
 In Go, wrapping errors is a standard approach, especially useful when you want to add more context or deal with multiple errors at once.
 
-Let's start with how we traditionally add context to an error, we often use `%w` with `fmt.Errorf` like this:
+Let's start with how we traditionally add context to an error. We often use `%w` with `fmt.Errorf` like this:
 
 ```go
 err := errors.New("this is an error")
@@ -1763,7 +1763,7 @@ Now, when it comes to handling several errors **simultaneously**, previously we'
 fmt.Errorf("%w: %w", err1, err2)
 ```
 
-However, also with Go 1.20, we also got a newer, simpler tool for this job called `errors.Join()`:
+Also in Go 1.20, we got a newer, simpler tool for this job called `errors.Join()`:
 
 ```go
 func Func2() error {
@@ -1775,7 +1775,7 @@ func Func2() error {
 }
 ```
 
-But this doesn't mean we should discard `fmt.Errorf` altogether. Both methods are compatible with `errors.Is()`, which lets you check for specific errors. 
+But this doesn't mean we should discard `fmt.Errorf` altogether. Both methods are compatible with `errors.Is()`, which lets you check for specific errors.
 
 However, they serve slightly different purposes.
 
@@ -1785,9 +1785,9 @@ However, they serve slightly different purposes.
 
 Let's think about a situation where we have many functions that could each return an error, and we're running them at the same time in different goroutines. If several of these functions fail, we'll end up with multiple errors.
 
-If we use `fmt.Errorf` to stack these errors, like `fmt.Errorf("%w: %w")`, it can create a confusing message. 
+If we use `fmt.Errorf` to stack these errors, like `fmt.Errorf("%w: %w")`, it can create a confusing message.
 
-This method suggests a chain of dependencies among errors, which isn't accurate since these errors are happening concurrently, not sequentially.
+This method suggests a chain of dependencies between errors, which isn't accurate since these errors are happening concurrently, not sequentially.
 
 Instead, using `errors.Join` in such scenarios makes more sense.
 
@@ -1795,9 +1795,9 @@ Instead, using `errors.Join` in such scenarios makes more sense.
 
 You might wonder why error messages in Go shouldn't start with a capital letter or end with punctuation. It can seem a bit strange at first, but there's a practical reason for it.
 
-When you're working with error messages in Go, they often get wrapped or combined with other messages. Imagine an error message that starts with a capital letter showing up in the middle of another sentence, it can look really out of place. 
+When you're working with error messages in Go, they often get wrapped or combined with other messages. Imagine an error message that starts with a capital letter showing up in the middle of another sentence. It can look really out of place.
 
-Here’s an example to show you what I mean:
+Here's an example to show you what I mean:
 
 ```go
 func openDatabase() error {
@@ -1843,9 +1843,9 @@ func main() {
 
 This way, it reads more like a continuous sentence rather than separate, awkward chunks.
 
-> "Why no punctual?"
+> "Why no punctuation?"
 
-Take a look at the first example again, we'll see it ends with an ellipsis (...), which looks a bit odd. This happens because fmt.Errorf automatically formats it that way when you include punctuation at the end after `%w`.
+Take a look at the first example again. We can see it ends with an ellipsis (...), which looks a bit odd. This happens because `fmt.Errorf` formats it that way when you include punctuation after `%w`.
 
 ### Avoid Returning -1 or nil to Indicate Error
 
@@ -1863,7 +1863,7 @@ func OpenFile(fileName) *string {
 
 The big problem with in-band error signaling is that it forces whoever calls the function to always remember to check for these special values. And let's be honest, this is error-prone.
 
-So, what’s Go's solution? 
+So, what's Go's solution?
 
 #### Go's solution: Multiple return values
 
@@ -1891,20 +1891,20 @@ processFileContent(content)
 So, what do you get with this?
 
 - Clear separation of concerns: It's clear which part of the return is the actual result and which part tells you if something went wrong.
-- Forced error handling: Go makes sure you don’t just ignore potential problems. This drastically cuts down on those sneaky bugs that happen when errors are overlooked.
+- Forced error handling: Go makes sure you don't just ignore potential problems. This drastically cuts down on those sneaky bugs that happen when errors are overlooked.
 - Better readability and maintainability: Your code practically documents itself, showing exactly where things can go wrong.
 
 Of course, there are exceptions to every rule.
 
-Even though Go generally prefers using multiple return values for clearer error handling, there are times when returning `nil` or `-1` makes sense and is practical. 
+Even though Go generally prefers using multiple return values for clearer error handling, there are times when returning `nil` or `-1` makes sense and is practical.
 
-For instance, some functions in the Go standard library, like those in the “strings” package, use these special values to indicate specific outcomes and this can make string manipulation a bit less verbose.
+For instance, some functions in the Go standard library, like those in the `strings` package, use these special values to indicate specific outcomes, and this can make string manipulation a bit less verbose.
 
 But it also means you need to have domain knowledge to understand when these special values are used and what they mean, such as `io.EOF` in the `io` package.
 
 ### Single Touch Error Handling: Less Noise
 
-Let's dive into something called single touch error handling, which is all about cutting down on unnecessary noise. We've got a couple of functions, A and B, and they're set up like this:
+Let's dive into something called single-touch error handling, which is all about cutting down on unnecessary noise. We have a couple of functions, `A` and `B`, and they're set up like this:
 
 ```go
 func B() error {
@@ -1926,23 +1926,23 @@ func A() error {
 }
 ```
 
-In this setup, when B runs into trouble, it logs the error and then passes it up to A. Then A, upon catching this error, logs it again before possibly sending it further up the chain.
+In this setup, when `B` runs into trouble, it logs the error and then passes it up to `A`. Then `A`, upon catching this error, logs it again before possibly sending it further up the chain.
 
 > "Why is this a problem?"
 
 Now, you might think this is solid because it tracks the error at multiple points, but it's actually just creating a lot of noise.
 
-Here’s why this can be problematic:
+Here's why this can be problematic:
 
 - Duplicate logs: This creates noise in your log files, making it harder to diagnose issues because the same error is recorded multiple times.
 - Complex error handling: It makes the error handling logic more complicated than it needs to be.
 - Potential for other errors: More code to handle errors means more room for bugs to sneak in.
 
-The idea behind single touch error handling is pretty simple: each error should be handled once and only once at a well-defined point in your code.
+The idea behind single-touch error handling is pretty simple: each error should be handled once and only once at a well-defined point in your code.
 
 Better Solution
 
-So, a better way to handle this whole error logging and propagation issue is to choose clearly whether you're going to handle the error right there, or just pass it up the chain without adding any extra noise. 
+So, a better way to handle this whole error logging and propagation issue is to clearly choose whether you're going to handle the error right there or just pass it up the chain without adding any extra noise.
 
 If you're passing it up, it's often a good idea to add more context to help whoever ends up handling it understand what went wrong along the way.
 
@@ -1969,13 +1969,13 @@ if err := A(); err != nil {
 }
 ```
 
-In this setup, neither A nor B logs the error immediately. Instead, they wrap the error with additional context and pass it up.
+In this setup, neither `A` nor `B` logs the error immediately. Instead, they wrap the error with additional context and pass it up.
 
-The actual logging happens once, at the highest level where the function `A` is called. This is where you decide how to handle the error, maybe log it, maybe panic, or perhaps take some corrective action.
+The actual logging happens once, at the highest level where the function `A` is called. This is where you decide how to handle the error: maybe log it, maybe panic, or perhaps take some corrective action.
 
 ### Simplify Your Error Messages in `fmt.Errorf`
 
-When you're working with errors in Go, it's extremely important to get the details right so you know exactly what went wrong. 
+When you're working with errors in Go, it's extremely important to get the details right so you know exactly what went wrong.
 
 _[Make Your Errors Clear with `fmt.Errorf`, Don't Just Leave Them Bare](#only-define-errors-var-errxxx--errorsnew-when-its-necessary-for-your-client)_
 
@@ -1987,11 +1987,11 @@ if err != nil {
 }
 ```
 
-But let's be real, sometimes our error messages turn into something like a mini saga: "**error while** crawling: **can't** retrieve log: **failed to** open file server-logs.txt: file not exist." It's informative, sure, but it's also a bit of an overkill.
+But let's be real: sometimes our error messages turn into something like a mini saga: "**error while** crawling: **can't** retrieve log: **failed to** open file server-logs.txt: file does not exist." It's informative, sure, but it's also a bit of overkill.
 
-We keep repeating phrases like "error while" and "failed to," which, to be honest, we already know because, well, it’s an error.
+We keep repeating phrases like "error while" and "failed to," which, to be honest, we already know because, well, it's an error.
 
-Here’s a slicker way to handle it:
+Here's a cleaner way to handle it:
 
 ```go
 if err != nil {
@@ -1999,19 +1999,19 @@ if err != nil {
 }
 ```
 
-Look at the difference here, instead of that lengthy message, you get: _"crawling: retrieve log: open file server-logs.txt: file not exist."_ It’s straightforward, easier to read, and cuts right to the chase.
+Look at the difference here. Instead of that lengthy message, you get: _"crawling: retrieve log: open file server-logs.txt: file does not exist."_ It's straightforward, easier to read, and gets right to the point.
 
-So, when you're crafting those error messages in Go, remember to keep them concise and focus on what action didn’t pan out. 
+So, when you're crafting those error messages in Go, remember to keep them concise and focus on what action didn't work.
 
-This way, we're not just making our code cleaner, shorter, but we're also making life easier for anyone who has to read through our logs later on.
+This way, we're not just making our code cleaner and shorter, but we're also making life easier for anyone who has to read through our logs later on.
 
-Personally, I prefer to keep the "failed" or negative word in the error log message, but not the error itself, it's up to you to decide what works best for your team.
+Personally, I prefer to keep the "failed" or negative word in the error log message, but not in the error itself. It's up to you to decide what works best for your team.
 
 ## Performance
 
 ### Pre-allocate Slices for Performance
 
-Back in the day, I used to pre-allocate slices using something like `make(a, 10)`, but over time, I realized that I was making a common mistake by habitually using `append()`, which often led to slices filled with unwanted leading zeroes. 
+Back in the day, I used to pre-allocate slices using something like `make(a, 10)`, but over time, I realized that I was making a common mistake by habitually using `append()`, which often led to slices filled with unwanted leading zeroes.
 
 For those who might not have seen this in action, let me paint you a picture with an example here:
 
@@ -2035,7 +2035,7 @@ b = append(b, 1) // [1]
 </td></tr>
 </tbody></table>
 
-In the first example, I ended up with a slice full of zeroes before the actual data, this is pretty inefficient, right? To avoid this, it’s better to use `make(a, 0, 10)`. 
+In the first example, I ended up with a slice full of zeroes before the actual data. This is pretty inefficient, right? To avoid this, it's better to use `make(a, 0, 10)`.
 
 What happens when you append an item to a slice and it exceeds the slice's capacity? This is where Go has to do some heavy lifting behind the scenes to 're-scale' the slice:
 
@@ -2051,7 +2051,7 @@ What happens when you append an item to a slice and it exceeds the slice's capac
 
 6. Finally, the function provides you with a new slice that has the adjusted length and capacity ready to use.
 
-So, what’s the moral of the story here? Whenever you can predict how much space you’ll need, go ahead and pre-allocate your slices. 
+So, what's the moral of the story here? Whenever you can predict how much space you'll need, go ahead and pre-allocate your slices.
 
 ### Prefer `strconv` Over `fmt` for Converting to/from String
 
@@ -2059,7 +2059,7 @@ When it comes to converting numbers into strings in Go, choosing the right tool 
 
 The strconv package is tailor-made for string conversion, which means it's optimized for tasks like converting numbers to strings. Every little bit of performance boost and memory saving really counts, especially when you're dealing with large-scale applications.
 
-To give you a clearer picture, let's look at a simple benchmark comparison between fmt and strconv:
+To give you a clearer picture, let's look at a simple benchmark comparison between `fmt` and `strconv`:
 
 ```go
 func BenchmarkFmt(b *testing.B) {
@@ -2086,8 +2086,8 @@ _(not sure about any optimization made by the compiler, but the context of both 
 
 As you can see, `strconv.Itoa` is significantly faster and more efficient in terms of memory allocation compared to `fmt.Sprint`, but why is this the case?
 
-- The `strconv.Itoa(..)` is specifically designed for converting integers to strings, this specialization allows it to execute more quickly than the more generalized `fmt` functions.
-- On the other hand, `fmt.Sprint` and its variants need to perform a bit of extra work, they use reflection to understand what type of data they're dealing with and to determine the best way to format it as a string.
+- `strconv.Itoa(..)` is specifically designed for converting integers to strings. This specialization allows it to execute more quickly than the more generalized `fmt` functions.
+- On the other hand, `fmt.Sprint` and its variants need to perform a bit of extra work. They use reflection to understand what type of data they're dealing with and to determine the best way to format it as a string.
 
 ```go
 func (p *pp) doPrint(a []any) {
@@ -2101,7 +2101,7 @@ func (p *pp) doPrint(a []any) {
 }
 ```
 
-This process of reflection isn't free, it adds both time and memory overhead, which can be quite significant when you're processing large amounts of data or require high performance.
+This process of reflection isn't free. It adds both time and memory overhead, which can be quite significant when you're processing large amounts of data or require high performance.
 
 ### Sort Fields in Struct from Largest to Smallest
 
@@ -2129,9 +2129,9 @@ type OptimizedA struct {
 }
 ```
 
-In the case of `A`, the struct consumes a total of 32 bytes, but `OptimizedA` reduces that to just 16 bytes, this difference arises from how the fields are aligned and padded within the struct.
+In the case of `A`, the struct consumes a total of 32 bytes, but `OptimizedA` reduces that to just 16 bytes. This difference comes from how the fields are aligned and padded within the struct.
 
-Let’s break down these concepts a bit further:
+Let's break down these concepts a bit further:
 
 - **Alignment**: This refers to how data types have specific alignment requirements based on their size. For instance, an `int32` might need to be aligned on a 4-byte boundary, meaning its starting memory address should be divisible by 4.
 - **Padding**: To meet these alignment requirements, compilers often insert unused space (known as padding) between struct fields.
@@ -2153,9 +2153,9 @@ For a more visual understanding, let's look at how A is laid out internally, whi
 - B (int32): Occupies 4 bytes directly after the padding, fitting perfectly on a 4-byte boundary.
 - C (byte): Takes 1 byte, but then to align D, which needs an 8-byte alignment, 7 bytes of padding are added after C.
 - D (int64): This field needs 8 bytes, and it fits snugly in its slot without any additional padding needed right after it.
-- E (byte): This is the final byte, which follows D. Depending on the struct's overall alignment needs, there might be additional padding at the end to align the entire struct’s size to a boundary.
+- E (byte): This is the final byte, which follows D. Depending on the struct's overall alignment needs, there might be additional padding at the end to align the entire struct's size to a boundary.
 
-The way that the fields in OptimizedA are structured is pretty clever in terms of memory efficiency
+The way the fields in `OptimizedA` are structured is pretty clever in terms of memory efficiency.
 
 <div align="center">
 
@@ -2168,23 +2168,23 @@ The way that the fields in OptimizedA are structured is pretty clever in terms o
 
 In this configuration:
 
-- D (int64): Positioned right at the beginning. This solution liminated any need for preceding padding which often just fills up space without any real benefit.
-- B (int32): which follows, sits on a 4-byte boundary, this happens quite naturally after D.
+- D (int64): Positioned right at the beginning. This solution eliminates any need for preceding padding, which often just fills space without any real benefit.
+- B (int32): This follows D and sits on a 4-byte boundary, which happens naturally after D.
 - A, C, E (bytes): The single-byte types are grouped together next. Since these are bytes, they fit together without necessitating extra padding between them.
 
-What we're seeing here is a strategic ordering from the largest to the smallest fields, this is not just about neatness but it's a calculated move to minimize padding. 
+What we're seeing here is a strategic ordering from the largest to the smallest fields. This is not just about neatness; it's a calculated move to minimize padding.
 
 Less padding means a reduction in the total size of the struct, which in turn means it uses less memory.
 
 A tool like [betteralign](https://github.com/dkorunic/betteralign), which I mentioned just now, is quite adept at finding these kinds of inefficiencies in field alignment. It can even offer automatic suggestions for reordering to enhance memory efficiency.
 
-However, it’s important to remember that reordering fields for efficiency **isn’t always the right move**. 
+However, it's important to remember that reordering fields for efficiency **isn't always the right move**.
 
 Sometimes, maintaining an order that reflects how the fields are used or their importance in the broader context of our application makes more sense. This can make the code more intuitive and maintainable, even if it's not the most compact format memory-wise.
 
 ### Avoid Defer in Loops, or Your Memory Might Blow Up
 
-The `defer` allows us to schedule a function to be executed at a later time, specifically just before the current function is about to return:
+The `defer` statement allows us to schedule a function to be executed at a later time, specifically just before the current function is about to return:
 
 ```go
 func main() {
@@ -2212,15 +2212,15 @@ for _, file := range files {
 }
 ```
 
-For the purposes of this explanation, let's not dive into handling errors that might occur when calling `f.Close()`, we have discussed that in _[Handle Errors of Deferred Calls to Prevent Silent Failures](#handle-errors-of-deferred-calls-to-prevent-silent-failures)_
+For the purposes of this explanation, let's not dive into handling errors that might occur when calling `f.Close()`. We have discussed that in _[Handle Errors of Deferred Calls to Prevent Silent Failures](#handle-errors-of-deferred-calls-to-prevent-silent-failures)_.
 
 Here are a couple of reasons why using defer in loops can be problematic:
 
 1. Execution timing
 
-All these deferred calls are queued up to execute only when the entire function is on the returning, not after each iteration of the loop. 
+All these deferred calls are queued up to execute only when the entire function is returning, not after each iteration of the loop.
 
-If our loop resides within a lengthy function, this setup means that none of our deferred tasks will be executed until much later
+If our loop resides within a lengthy function, this setup means that none of our deferred tasks will be executed until much later.
 
 So, instead of freeing up these resources as soon as they are no longer needed, we potentially end up holding onto them until the very end of the function's execution.
 
@@ -2238,9 +2238,9 @@ This storage happens within the function's stack frame or perhaps on the heap, d
 
 There are a few strategies we can consider to mitigate the impact.
 
-If you're searching for a simpler, or shall we say "lazy" solution, you might want to look into employing an anonymous function to encapsulate the `defer` statement. 
+If you're searching for a simpler, or shall we say "lazy" solution, you might want to use an anonymous function to encapsulate the `defer` statement.
 
-Here’s how you could structure it:
+Here's how you could structure it:
 
 ```go
 for _, file := range files {
@@ -2256,7 +2256,7 @@ for _, file := range files {
 }
 ```
 
-Or if you're aiming for a more structured method, you could extract the logic into a separate function or an in-function function. 
+Or if you're aiming for a more structured method, you could extract the logic into a separate function or an inner function.
 
 ```go
 doSomething := func(filename string) error {
@@ -2276,11 +2276,11 @@ for _, file := range files {
 }
 ```
 
-We could separate this functionality into a named function, or perhaps, **cautiously** choose not to use defer (Remember defer is still invoked even if a panic occurs, which can be a safety net in some scenarios).
+We could separate this functionality into a named function, or perhaps **cautiously** choose not to use `defer`. Remember that `defer` is still invoked even if a panic occurs, which can be a safety net in some scenarios.
 
 ### Case-insensitive String Comparison with `strings.EqualFold`
 
-If our goal is to compare strings without considering case sensitivity, we might initially think about converting both strings entirely to lower case using `strings.ToLower()` or to upper case using `strings.ToUpper()`, and then performing a comparison:
+If our goal is to compare strings without considering case sensitivity, we might initially think about converting both strings entirely to lowercase using `strings.ToLower()` or to uppercase using `strings.ToUpper()`, and then performing a comparison:
 
 ```go
 if strings.ToLower(a) == strings.ToLower(b) {
@@ -2288,9 +2288,9 @@ if strings.ToLower(a) == strings.ToLower(b) {
 }
 ```
 
-But Go provides a simpler and more effective method for case-insensitive string comparison: `strings.EqualFold`. 
+But Go provides a simpler and more effective method for case-insensitive string comparison: `strings.EqualFold`.
 
-This function is designed for such comparisons and offers a more optimal solution:
+This function is designed for such comparisons and offers a more efficient solution:
 
 ```go
 if strings.EqualFold(a, b) {
@@ -2300,9 +2300,9 @@ if strings.EqualFold(a, b) {
 
 The preference for `strings.EqualFold` isn't just due to its brevity. It's specifically optimized for case-insensitive comparisons, which not only simplifies the code but significantly enhances performance.
 
-> "Is strings.EqualFold faster than using ToLower and then comparing?"
+> "Is `strings.EqualFold` faster than using `ToLower` and then comparing?"
 
-Yes, it definitely is. 
+Yes, it definitely is.
 
 When we compare the performance numbers, it's clear that `strings.EqualFold` is not just about simplicity but also about efficiency:
 
@@ -2311,7 +2311,7 @@ BenchmarkToLower-8      29140400    40.67 ns/op     8 B/op  1 allocs/op
 BenchmarkEqualFold-8    208766617   5.718 ns/op     0 B/op  0 allocs/op
 ```
 
-The function doesn't merely convert characters from upper to lower case.
+The function doesn't merely convert characters from uppercase to lowercase.
 
 It takes into consideration the complexities of Unicode, ensuring that the comparison is accurate across all languages:
 
@@ -2320,23 +2320,23 @@ strings.EqualFold("Σ", "σ")           // true
 strings.EqualFold("RESUMÉ", "resumé") // true
 ```
 
-Here’s how it works:
+Here's how it works:
 
 - Fast path: It checks ASCII characters quickly, one by one.
 - Slow path: If it finds a Unicode character, it shifts to a detailed comparison to handle these characters accurately.
 
-_We can still use `strings.ToLower` or `strings.ToUpper` for example above, they both handle Unicode characters well._
+_We can still use `strings.ToLower` or `strings.ToUpper` for the example above. They both handle Unicode characters well._
 
-Not yet, there are situations where `strings.EqualFold` might not cover all bases, for example:
+Still, there are situations where `strings.EqualFold` might not cover all bases, for example:
 
 ```go
 s1 := "Resumé" // Normal 'é'
 s2 := "resume\u0301" // 'e' followed by a combining acute accent
 ```
 
-Although the characters appear similar, they are encoded differently. 
+Although the characters appear similar, they are encoded differently.
 
-In such cases, `strings.EqualFold` alone might not suffice and to address this, you'd need to integrate more specific handling, potentially using [normalization techniques](https://golang.org/x/text/unicode/norm):
+In such cases, `strings.EqualFold` alone might not be enough. To address this, you need more specific handling, potentially using [normalization techniques](https://golang.org/x/text/unicode/norm):
 
 ```go
 import "golang.org/x/text/unicode/norm"
@@ -2383,7 +2383,7 @@ for _, v := range numbers {
 }
 ```
 
-Here's the tricky part: we're not actually allocating new memory, what we're doing is populating the existing array that `numbers` originally referenced. So, both `filtered` and `numbers` will reflect the changes, but only up to the last element we add to `filtered`:
+Here's the tricky part: we're not actually allocating new memory. What we're doing is populating the existing array that `numbers` originally referenced. So both `filtered` and `numbers` will reflect the changes, but only up to the last element we add to `filtered`:
 
 ```go
 numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -2395,7 +2395,7 @@ numbers: [1 3 5 7 9 6 7 8 9]
 
 This method is really handy if:
 
-- You're okay with changing the original numbers array since you won't need it in its original form after filtering.
+- You're okay with changing the original `numbers` array since you won't need it in its original form after filtering.
 - You're dealing with large datasets and performance is a key concern, mainly because this method minimizes memory usage by not creating additional slices.
 
 ## Readability & Maintainability
@@ -2418,11 +2418,11 @@ A more intuitive way to express the same duration could be:
 const refreshDuration = 7 * 24 * time.Hour
 ```
 
-By breaking it down into `7 * 24 * time.Hour`, it becomes instantly clear to anyone reading the code that refreshDuration equates to **one week**. This way, there's no need to pause and calculate the total number of hours in a week.
+By breaking it down into `7 * 24 * time.Hour`, it becomes instantly clear to anyone reading the code that `refreshDuration` equals **one week**. This way, there's no need to pause and calculate the total number of hours in a week.
 
 ### Making Sense of Large Numbers with Numeric Separators
 
-Dealing with long numbers in code often leads to a readability challenge. 
+Dealing with long numbers in code often leads to a readability challenge.
 
 It's easy to lose track of **how many zeros** are in a billion or where the decimal places should go in more precise figures like pi.
 
@@ -2449,9 +2449,9 @@ const pi = 3.141_592_653_589_793 // 3.141592653589793
 
 Numeric separators make your numbers easier to read and your code less prone to mistakes, all while keeping everything neat and tidy.
 
-### Avoid Naked Parameters with Comment or Constant
+### Avoid Naked Parameters with Comments or Constants
 
-Here's a neat little technique to improve the readability of your functions, especially when our IDE doesn't support inlay hints that show parameter names alongside their values.
+Here's a neat little technique to improve the readability of your functions, especially when your IDE doesn't support inlay hints that show parameter names alongside their values.
 
 Sometimes, when we use functions with multiple parameters, it's hard to tell what each parameter stands for just by looking at the call, especially if they are of the same type or are literal values like booleans or numbers:
 
@@ -2460,7 +2460,7 @@ Sometimes, when we use functions with multiple parameters, it's hard to tell wha
 printInfo("foo", true, true)
 ```
 
-What do "true" values represent? A clearer method is to use in-line comments that directly associate each argument with its purpose:
+What do the `true` values represent? A clearer method is to use inline comments that directly associate each argument with its purpose:
 
 ```go
 // BETTER
@@ -2473,7 +2473,7 @@ printInfo("foo",
 )
 ```
 
-This makes it immediately obvious what each true stands for without having to go back to the function definition.
+This makes it immediately obvious what each `true` stands for without having to go back to the function definition.
 
 Another way to solve unclear parameters is to use constants, even if they're only used once and only in that specific function:
 
@@ -2486,21 +2486,21 @@ const isLocal, notDone = true, false
 printInfo("foo", isLocal, notDone)
 ```
 
-The constant name is important, by defining `isLocal` and `done` (or `notDone`) as constants with descriptive names, anyone looking at the `printInfo` call can immediately understand what true values are being passed for.
+The constant name is important. By defining `isLocal` and `done` (or `notDone`) as constants with descriptive names, anyone looking at the `printInfo` call can immediately understand what the `true` values are being passed for.
 
 ### Empty Slice or, Even Better, `nil` Slice
 
-When we're setting up to work with slices, we might wonder whether to start with what's technically an empty slice or, perhaps even more efficiently, a `nil` slice. 
+When we're setting up to work with slices, we might wonder whether to start with what's technically an empty slice or, perhaps more efficiently, a `nil` slice.
 
-First, there's the method using the var keywor:
+First, there's the method using the `var` keyword:
 
 ```go
 var t []int
 ```
 
-Here, `t` is a slice of type `int`, but it hasn't been initialized yet, so it's considered nil. 
+Here, `t` is a slice of type `int`, but it hasn't been initialized yet, so it's considered nil.
 
-This means it doesn't point to any underlying array, and both its length (len) and capacity (cap) are zero. 
+This means it doesn't point to any underlying array, and both its length (`len`) and capacity (`cap`) are zero.
 
 On the other hand, you could initialize an empty slice using a slice literal:
 
@@ -2508,19 +2508,19 @@ On the other hand, you could initialize an empty slice using a slice literal:
 t := []int{}
 ```
 
-This slice isn’t nil. It points to an underlying array, but it's an array without any elements. 
+This slice isn't nil. It points to an underlying array, but it's an array without any elements.
 
 While this method does allocate a small amount of memory to maintain that underlying, yet empty, array, the difference in memory usage compared to a `nil` slice is usually quite small.
 
 So, which one is considered idiomatic?
 
-In Go, the nil slice is often favored, it aligns well with Go's philosophy of simplicity and using zero values effectively. 
+In Go, the nil slice is often favored. It aligns well with Go's philosophy of simplicity and using zero values effectively.
 
-1. A nil slice doesn’t allocate any memory, it’s just a pointer that leads nowhere, which can be particularly advantageous in high-performance scenarios where every bit of efficiency counts.
+1. A nil slice doesn't allocate any memory. It's just a pointer that leads nowhere, which can be particularly advantageous in high-performance scenarios where every bit of efficiency counts.
 
 2. The Go community prefers using `nil` slices because it aligns well with Go's philosophy around simplicity and working with zero values.
 
-3. There are exceptions to every rule, for instance, when dealing with JSON serialization, a `nil` slice translates to `null` in JSON, whereas an empty slice turns into an empty array ([]).
+3. There are exceptions to every rule. For instance, when dealing with JSON serialization, a `nil` slice translates to `null` in JSON, whereas an empty slice turns into an empty array (`[]`).
 
 4. It's also good practice to write your code in a way that it treats `nil` slices, empty slices, and non-empty slices similarly. Things like `for range`, `len()`, and `append()` handle `nil` slices gracefully, so using them can simplify your error handling.
 
@@ -2549,7 +2549,7 @@ for _, value := range nilSlice {}
 
 ### Understand "Return Fast, Return Early" to Avoid Nested Code
 
-Clarity is key, we want anyone who looks at our code (including future you) to quickly understand what's happening. 
+Clarity is key. We want anyone who looks at our code, including future you, to quickly understand what's happening.
 
 An effective strategy to enhance this clarity is to structure your code so the main flow, often called the "happy path," is on the left side of the screen, while error handling and edge cases are on the right.
 
@@ -2568,14 +2568,14 @@ if fileExists(fileName) {
 }
 ```
 
-The above snippet creates multiple nested conditions which can make the code harder to follow.
+The above snippet creates multiple nested conditions, which can make the code harder to follow.
 
-The tip of "return fast, return early" can really simplify how this looks and operates.
+The "return fast, return early" tip can really simplify how this looks and operates.
 
 It's about addressing errors or special conditions upfront and then getting them out of the way as soon as possible:
 
 - You handle it immediately.
-- Stop the execution of the current operation using: return, break, continue,...
+- Stop the execution of the current operation using `return`, `break`, `continue`, and similar statements.
 - Or manage the error in a way that allows the normal execution to proceed safely, if appropriate.
 
 Let's refactor the example:
@@ -2596,7 +2596,7 @@ This version quickly exits if the file doesn't exist or if there's an error read
 
 > "But what if my function returns two values, like when fetching a user, and I only use one of them in a specific scope?"
 
-For instance, even though `user` is only needed in the else scope, it's cleaner to separate the error checking from the initialization:
+For instance, even though `user` is only needed in the `else` scope, it's cleaner to separate error checking from initialization:
 
 <table>
 <thead><tr><th>Bad</th><th>Better</th></tr></thead>
@@ -2633,7 +2633,7 @@ return nil
 </td></tr>
 </tbody></table>
 
-> "But what if I only want to use 'user' within that else scope?"
+> "But what if I only want to use `user` within that else scope?"
 
 If `user` is strictly used within that scope and doesn't impact the logic outside, you might consider encapsulating that specific logic into its own function:
 
@@ -2654,27 +2654,27 @@ if err := processUser(userID); err != nil {
 
 Now we could apply the "return fast, return early" tip to the `processUser` function.
 
-### Define Interfaces in the Consumer Package, Not the Producer Once
+### Define Interfaces in the Consumer Package, Not the Producer Package
 
-There's a pretty nifty guideline that often gets overlooked using interfaces in Go. 
+There's a pretty useful guideline that often gets overlooked when using interfaces in Go.
 
-It revolves around where to define these interfaces, should it be in the package where they are implemented (producer) or the package where they are used (consumer)?
+It revolves around where to define these interfaces. Should they be in the package where they are implemented (producer) or in the package where they are used (consumer)?
 
 1. Define interfaces in the consumer package, not the producer.
 
-This might seem a bit counterintuitive, but it’s all about who needs what, and who knows what. 
+This might seem a bit counterintuitive, but it's all about who needs what and who knows what.
 
-When the consumer defines the interface, it ensures that only the necessary methods required by the consumer are included, nothing more. 
+When the consumer defines the interface, it ensures that only the methods required by the consumer are included, nothing more.
 
 This way, we can avoid the drawback of an overly prescriptive interface that dictates implementation details unnecessarily.
 
-2. In the producer package, it’s generally better to return concrete types rather than interfaces.
+2. In the producer package, it's generally better to return concrete types rather than interfaces.
 
-This ties back to not defining interfaces in the producer package, by returning concrete types, we maintain flexibility. We can freely add new methods to these types down the line without worrying about breaking existing contracts defined by an interface
+This ties back to not defining interfaces in the producer package. By returning concrete types, we maintain flexibility. We can freely add new methods to these types later without worrying about breaking existing contracts defined by an interface.
 
-3. Avoid defining interfaces prematurely. 
+3. Avoid defining interfaces prematurely.
 
-It’s tempting to lay down a bunch of interfaces early in the development process, but it’s often unnecessary. 
+It's tempting to lay down a bunch of interfaces early in the development process, but it's often unnecessary.
 
 ```go
 type UserRepository interface {
@@ -2686,7 +2686,7 @@ type UserRepository interface {
 }
 ```
 
-Only define an interface when you have a clear, immediate need for it. This ensures that your interfaces are designed with purpose and are designed to actual use cases, rather than hypothetical ones.
+Only define an interface when you have a clear, immediate need for it. This ensures that your interfaces are designed with purpose and based on actual use cases, rather than hypothetical ones.
 
 ----------
 Now, let's look at a common scenario where these principles can be applied or are often violated:
@@ -2709,9 +2709,9 @@ func NewConsoleLogger() Logger {
 }
 ```
 
-The `Logger` interface and its implementation (`consoleLogger`) are defined in the same package, the `logger` package, this setup is quite typical but goes against our first principle.
+The `Logger` interface and its implementation (`consoleLogger`) are defined in the same package, the `logger` package. This setup is quite typical, but it goes against our first principle.
 
-And then, when this Logger is used in another package:
+And then, when this `Logger` is used in another package:
 
 ```go
 package service
@@ -2729,7 +2729,7 @@ Here, the service package is consuming the `Logger` interface defined in the log
 
 Well, it could be seen that way, depending on the angle you're looking from.
 
-Let's revise the snipept to align with our outlined principles, here’s an updated version of our producer, the `logger` package:
+Let's revise the snippet to align with our outlined principles. Here's an updated version of our producer, the `logger` package:
 
 ```go
 package logger
@@ -2741,10 +2741,10 @@ func (l ConsoleLogger) Log(message string) {
 }
 ```
 
-Rememeber 3 principles we discussed earlier? 
+Remember the 3 principles we discussed earlier?
 
-1. The `Logger` interface is no longer part of the producer package, then, `ConsoleLogger` is just a regular struct with no ties to any interface.
-2. When we instantiate a `Logger`, we’re directly working with or returning a concrete type.
+1. The `Logger` interface is no longer part of the producer package. `ConsoleLogger` is just a regular struct with no ties to any interface.
+2. When we instantiate a `Logger`, we're directly working with or returning a concrete type.
 3. We're holding off on defining interfaces until there's a definite demand for them, avoiding the need to predict what functions might be necessary for the consumer.
 
 Now, let's see how the consumer integrates this:
@@ -2765,16 +2765,16 @@ type fakeLogger struct{}
 func (f fakeLogger) Log(message string) {}
 ```
 
-By defining interfaces in the locations where they're used, in this case, within the service package, we're ensuring that these high-level components rely on abstractions rather than concrete implementations from lower-level modules.
+By defining interfaces in the locations where they're used, in this case within the service package, we're ensuring that these high-level components rely on abstractions rather than concrete implementations from lower-level modules.
 
 > "But what if I have multiple consumers for the same interface?"
 
 There are some strategies to handle this:
 
 - You could place the interface in a shared package accessible to all consumers, but this approach has its drawbacks. If one consumer requires a new method, it impacts all other consumers who share this interface.
-- Duplicate the interface in each consumer package, it might seem like violating the DRY (Don't Repeat Yourself) principle, but it's actually a good practice in this context.
+- Duplicate the interface in each consumer package. It might seem like violating the DRY (Don't Repeat Yourself) principle, but it's actually a good practice in this context.
 
-If you change the producer, all the consumers will be affected, but this is better because you need to be aware of the changes. Also, if 1 consumer needs a new method, it won't affect other consumers.
+If you change the producer, all the consumers will be affected, but this is better because you need to be aware of the changes. Also, if one consumer needs a new method, it won't affect other consumers.
 
 A little more work, but it's a small price to pay for the flexibility and maintainability it brings.
 
@@ -2800,9 +2800,9 @@ default:
 
 This is necessary because, without the `break`, the program would continue executing the following cases even if a match had already been found.
 
-However, Go simplifies this process. 
+However, Go simplifies this process.
 
-In Go, each case in a `switch` statement automatically includes an implicit `break` and this means that once a case matches, Go will stop executing any further cases without requiring an explicit break statement:
+In Go, each case in a `switch` statement automatically includes an implicit `break`. This means that once a case matches, Go will stop executing any further cases without requiring an explicit `break` statement:
 
 ```go
 switch (1) {
@@ -2820,9 +2820,9 @@ default:
 
 This design decision by Go not only makes our code cleaner but also reduces the chance of bugs related to the unintentional "fall-through" behavior seen in other languages.
 
-Most often, that's exactly what we need: to stop once we've found a match, it's rare to want to continue executing subsequent cases without interruption. Go's design caters to this common scenario rather than the exceptions.
+Most often, that's exactly what we need: to stop once we've found a match. It's rare to want to continue executing subsequent cases without interruption. Go's design caters to this common scenario rather than the exceptions.
 
-> “What if I want to continue?”
+> "What if I want to continue?"
 
 For those situations where we do want the execution to proceed from one case to the next, Go has you covered with the `fallthrough` keyword. This allows the execution to pass intentionally from the matched case to the following case:
 
@@ -2841,7 +2841,7 @@ default:
 // Settings selected
 ```
 
-However, there's a particular scenario where you might still need to use `break` in a `switch` statement, specifically when you want to exit a loop that contains the `switch`. 
+However, there's a particular scenario where you might still need to use `break` in a `switch` statement, specifically when you want to exit a loop that contains the `switch`.
 
 Normally, a break inside a `switch` statement doesn't affect the enclosing loop, right? So, if we want to exit a loop based on a condition evaluated within a `switch`, we'll need to use labels:
 
@@ -2855,7 +2855,7 @@ for {
 }
 ```
 
-Using a label in this way lets us clearly define where we want to exit, ensuring that the `break` statement affects the loop rather than just terminating the switch case.
+Using a label in this way lets us clearly define where we want to exit, ensuring that the `break` statement affects the loop rather than just terminating the `switch` case.
 
 ### Keep Your Names Simple and Clear by Avoiding Repetition
 
@@ -2885,9 +2885,9 @@ userrepository.New()
 </td></tr>
 </tbody></table>
 
-With the improved version, the repetition is gone. 
+With the improved version, the repetition is gone.
 
-When we use something like `chocolate.NewBar()`, it's straightforward and clear, we’re making a new chocolate bar.
+When we use something like `chocolate.NewBar()`, it's straightforward and clear: we're making a new chocolate bar.
 
 2. Variable name vs. type
 
@@ -2938,12 +2938,12 @@ In the better example, adding 'Input' to the variable name clarifies that it's a
 
 3. Avoiding repetition boils down to 'context'
 
-So, what we're talking about boils down to context, this includes:
+So, what we're talking about boils down to context. This includes:
 
 - Package names
 - Method names
 - Type names
-- Filename
+- File names
 
 These should help you pick names that are simple but tell you enough, without repeating stuff that's already clear.
 
@@ -3006,7 +3006,7 @@ func SendEmail(recipient, subject, body string)
 </td></tr>
 </tbody></table>
 
-- Inside functions, especially with parameters or data closely tied to what the function does::
+- Inside functions, especially with parameters or data closely tied to what the function does:
 
 <table>
 <thead><tr><th>Bad</th><th>Better</th></tr></thead>
@@ -3045,15 +3045,15 @@ In each of these cases, the better names make your code more straightforward and
 
 ### Skip the 'Get' Prefix for Getters
 
-So, when we need to name a function, we usually start with a verb, right? Like get, set, fetch, update, calculate, and so on. But, you know, getters are kind of an exception in Go.
+So, when we need to name a function, we usually start with a verb, right? Examples include get, set, fetch, update, calculate, and so on. But getters are kind of an exception in Go.
 
-> "Wait, Why do I even need getters and setters?"
+> "Wait, why do I even need getters and setters?"
 
 Well, in Go, we handle encapsulation through how we control the visibility of methods and by following naming conventions. This provides a nice, subtle way to support encapsulation without having to strictly enforce getter and setter methods.
 
 However, if you need to include some additional logic, or if you're dealing with a computed field, it's totally fine to define getters and setters manually.
 
-> "So, what's the typical way to name a getter?
+> "So, what's the typical way to name a getter?"
 
 The usual practice is to just use the field name and capitalize the first letter to make it public, or "export" it:
 
@@ -3087,15 +3087,15 @@ These examples show how Go lets us create getters that feel natural and intuitiv
 
 ### Naming Unexported Global Variables with an Underscore `_` Prefix
 
-_(Note: This convention isn't widely accepted as the standard in the Go community, but it's something the folks at Uber have put in their style guide)_
+_(Note: This convention isn't widely accepted as the standard in the Go community, but it's something the folks at Uber have put in their style guide.)_
 
 So, top-level variables and constants can be accessed all over the package they're declared in.
 
-> "What’s the issue with the usual way?"
+> "What's the issue with the usual way?"
 
-Without a specific way to name things, it’s really easy to accidentally use the same name for something local that’s meant for use across the package, this can lead to what we call "shadowing."
+Without a specific way to name things, it's really easy to accidentally use the same name for something local that's meant for use across the package. This can lead to what we call "shadowing."
 
-Here’s what I mean:
+Here's what I mean:
 
 ```go
 const dataSize = 100
@@ -3108,7 +3108,7 @@ func ProcessData() {
 
 In this snippet, the local `dataSize` inside `ProcessData` overshadows the global `dataSize`.
 
-> "What’s the big deal if they have different names?"
+> "What's the big deal if they have different names?"
 
 Let's break it down with an example:
 
@@ -3124,10 +3124,10 @@ func addUser() {
 }
 ```
 
-This might look simple, but it still raises a question: Where does maxUsers come from?
+This might look simple, but it still raises a question: Where does `maxUsers` come from?
 
-- Is it just another local variable like 'limit'?
-- Maybe it’s an argument passed to the function?
+- Is it just another local variable like `limit`?
+- Maybe it's an argument passed to the function?
 - Or is it something from the global scope?
 
 In complex code, figuring this out might mean a lot of flipping back and forth or using navigation shortcuts (e.g. Cmd + Click) in an IDE, which can really disrupt our flow.
@@ -3149,7 +3149,7 @@ func addUser() {
 }
 ```
 
-With this small change, it becomes crystal clear that `_maxUsers` is a global variable or constant. 
+With this small change, it becomes clear that `_maxUsers` is a global variable or constant.
 
 ### Converting Multiple If-Else Statements into Switch Cases
 
@@ -3169,7 +3169,7 @@ if canProcess && userActive {
 
 While there's nothing inherently wrong with this solution, there is a cleaner and more readable alternative we can use by transforming these if-else chains into switch statements.
 
-To get a handle on this, let’s first inspect how the switch-case structure is typically set up:
+To get a handle on this, let's first inspect how the switch-case structure is typically set up:
 
 ```go
 switch initializations; condition {
@@ -3182,9 +3182,9 @@ switch initializations; condition {
 }
 ```
 
-In cases where we're dealing with straightforward boolean conditions, we can actually skip over the 'initializations' and the 'condition' parts. 
+In cases where we're dealing with straightforward boolean conditions, we can skip the `initializations` and `condition` parts.
 
-What we end up with is something like `switch true {}`, but since the true is implied, we can leave it out altogether.
+What we end up with is something like `switch true {}`, but since `true` is implied, we can leave it out altogether.
 
 Now, let's take the concepts we've discussed and use them to refine our original switch statement example:
 
@@ -3201,7 +3201,7 @@ default:
 }
 ```
 
-It’s a subtle shift, but it can make a significant difference, This technique is not just theoretical but also widely used in Go codebases including the standard library.
+It's a subtle shift, but it can make a significant difference. This technique is not just theoretical but also widely used in Go codebases, including the standard library.
 
 Take, for example, this snippet from the `net/http` package:
 
@@ -3226,11 +3226,11 @@ func (b *body) Close() error {
 
 When we discuss the idea of gracefully shutting down an application, what we're really talking about is making sure a few important things happen smoothly:
 
-- No new requests: First off, the server stops accepting any new incoming requests, this prevents additional load or new processes from starting up while we're trying to close down.
+- No new requests: First, the server stops accepting any new incoming requests. This prevents additional load or new processes from starting while we're trying to shut down.
 - Completion of ongoing tasks: This means giving ongoing operations enough time to complete properly rather than cutting them off abruptly, which could lead to data loss or corruption.
-- Resource cleanup: We need to clean up and release any resources that the application was using
+- Resource cleanup: We need to clean up and release any resources that the application was using.
 
-So, how do we implement this smoothly? 
+So, how do we implement this smoothly?
 
 There are several ways to approach this, but let's go through a simple yet effective method:
 
@@ -3254,11 +3254,11 @@ if err := g.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 }
 ```
 
-Here’s what we’re doing:
+Here's what we're doing:
 
 - We start by setting up a context that listens for interrupt signals like Ctrl+C or a `SIGTERM`. This context helps us handle these signals so we can start the shutdown process when they're received.
 - We use an `errgroup` with this context to manage two goroutines:
-    - We launch our server, remember that `ListenAndServe` will always return a non-nil error when the server stops, whether it's due to an error or a regular shutdown.
+    - We launch our server. Remember that `ListenAndServe` will always return a non-nil error when the server stops, whether it's due to an error or a regular shutdown.
     - The second goroutine is where the graceful shutdown logic lives. This part waits for a signal that the context is done (meaning an interrupt signal was received), and then proceeds to shut down the server.
 
 This shutdown process is where our application ensures that all the tasks are either completed or stopped at a suitable point, and all resources are properly released.
@@ -3269,9 +3269,9 @@ When our service is running in a Kubernetes environment, it's important to fine-
 
 A common misconception is that once a SIGTERM is received, our application should immediately start shutting down, but in a Kubernetes setup, this solution can be problematic.
 
-Instead of stopping all new requests right away when we receive a SIGTERM, it's better to keep our application running a little longer. Why? 
+Instead of stopping all new requests right away when we receive a SIGTERM, it's better to keep our application running a little longer. Why?
 
-Because we want to make sure it finishes dealing with all the active requests first. Additionally, it's better to keep accepting incoming connections for a short period after the shutdown begins. This strategy helps because it sometimes takes a little time for Kubernetes to notify all the kube-proxies, load balancers about your pod shutting down.
+Because we want to make sure it finishes handling all active requests first. Additionally, it's better to keep accepting incoming connections for a short period after the shutdown begins. This strategy helps because it sometimes takes a little time for Kubernetes to notify all kube-proxies and load balancers about your pod shutting down.
 
 ### Keep the Mutex Close to the Data It's Protecting
 
@@ -3293,11 +3293,11 @@ type UserSession struct {
 
 Now, looking at this structure, which fields do you think the mutex is protecting?
 
-It might be guarding the 'Preferences', perhaps the 'Cart', 'Profile', or other fields, or it could even be all of them. The tip here is to organize our struct in such a way that it becomes apparent immediately, without the need to dive into the logic.
+It might be guarding `Preferences`, perhaps `Cart`, `Profile`, or other fields, or it could even be all of them. The tip here is to organize our struct in such a way that it becomes apparent immediately, without the need to dive into the logic.
 
 The trick is to arrange your struct so we can tell at a glance, without needing to dig through our code.
 
-> ""But didn't you say to order fields in a struct from biggest to smallest?"
+> "But didn't you say to order fields in a struct from biggest to smallest?"
 
 _[Sort Fields in Struct from Largest to Smallest](#sort-fields-in-struct-from-largest-to-smallest)_
 
@@ -3324,11 +3324,11 @@ type UserSession struct {
 }
 ```
 
-By placing the mutex right above the 'Preferences' and 'Cart', we show our team (and our future selves) that these fields, in particular, need to be accessed safely when multiple goroutines are involved.
+By placing the mutex right above `Preferences` and `Cart`, we show our team, and our future selves, that these fields in particular need to be accessed safely when multiple goroutines are involved.
 
 This principle isn't limited to just structs, though.
 
-They can also be crucial when dealing with global variables or functions that should be executed one at a time:
+This can also be crucial when dealing with global variables or functions that should be executed one at a time:
 
 ```go
 var (
@@ -3350,7 +3350,7 @@ Now, we know there's a bit of a debate around using global variables due to issu
 
 Global variables are those we place outside functions or methods, making them accessible to any part of our code. 
 
-So, they can be modified by any piece of the code that accesses them, they're convenient, they're a common source of bugs:
+So, they can be modified by any piece of the code that accesses them. They're convenient, but they're also a common source of bugs:
 
 ```go
 var featureConfig = loadFeatureConfig() 
@@ -3364,10 +3364,10 @@ func processCheckout(userID string, cart Cart) {
 }
 ```
 
-Now, it's not that all global variables are necessarily bad, but they often bring more trouble than they're worth, let’s delve into why that is, using the example we have:
+Now, it's not that all global variables are necessarily bad, but they often bring more trouble than they're worth. Let's look at why that is, using the example we have:
 
-- Tracking changes is tough: When `featureConfig` can be changed by any part of our app, finding where changes were made becomes a challenge. 
-- Testing gets tricky: Suppose we want to test different checkout processes, if both tests change the same global `featureConfig`, they can't run independently without potentially interfering with each other. 
+- Tracking changes is tough: When `featureConfig` can be changed by any part of our app, finding where changes were made becomes a challenge.
+- Testing gets tricky: Suppose we want to test different checkout processes. If both tests change the same global `featureConfig`, they can't run independently without potentially interfering with each other.
 - Concurrency problems: When multiple requests attempt to read or modify `featureConfig` simultaneously, it can lead to inconsistencies and race conditions.
 
 > "So, what is the solution?"
@@ -3388,7 +3388,7 @@ func (s *CheckoutService) Process(userID string, cart Cart) {
 }
 ```
 
-Admittedly, this solution adds a bit of complexity initially, but it significantly eases maintaining the code, testing it, and debugging. 
+Admittedly, this solution adds a bit of complexity initially, but it significantly eases code maintenance, testing, and debugging.
 
 With dependency injection, setting up tests for different scenarios, like having a feature enabled or disabled becomes simpler. You can run as many concurrent tests as you want without worrying about them interfering with each other:
 
@@ -3412,17 +3412,17 @@ func TestProcessWithFeatureDisabled(t *testing.T) {
 }
 ```
 
-But, if our global variables are static, don’t require testing, and need to stay consistent throughout the application's lifecycle, using global variables might still be the right solution in those specific cases. 
+But if our global variables are static, don't require testing, and need to stay consistent throughout the application's lifecycle, using global variables might still be the right solution in those specific cases.
 
 And if you must use global variables that change during runtime, make sure you're implementing proper synchronization techniques, like mutexes, to manage access safely.
 
 ### Implement `String()` for Enum with the `stringer` Tool
 
-Have you noticed when you print a duration, like `fmt.Println(time.Second)`, it shows up as "1s" instead of "1000000000" even though `time.Duration` is technically an int64? 
+Have you noticed that when you print a duration, like `fmt.Println(time.Second)`, it shows up as "1s" instead of "1000000000", even though `time.Duration` is technically an int64?
 
 This handy representation comes from the `String()` method defined on the `time.Duration` type, which is designed to make the output more user-friendly.
 
-Also, this is a part of the `fmt.Stringer` interface:
+Also, this is part of the `fmt.Stringer` interface:
 
 ```go
 package fmt
@@ -3437,7 +3437,7 @@ fmt.Println(time.Second) // 1s
 
 For our custom types to be just as clear, we can implement a `String()` method too.
 
-Now, consider enums, we often use numbers to represent different constants, but it's much more meaningful to print out something readable. 
+Now, consider enums. We often use numbers to represent different constants, but it's much more meaningful to print something readable.
 
 For instance, we might have an enum for different hero types in a game, which we would typically represent with a switch statement like this:
 
@@ -3446,8 +3446,8 @@ func (h HeroType) String() string {
     switch h {
     case HeroTypeTank:
         return "Tank"
-    case HeroTypeAssasin:
-        return "Assasin"
+    case HeroTypeAssassin:
+        return "Assassin"
     case HeroTypeMage:
         return "Mage"
     }
@@ -3456,11 +3456,11 @@ func (h HeroType) String() string {
 }
 ```
 
-However, this approach can be "burdensome". 
+However, this approach can be burdensome.
 
 If we add a new type to the enum and forget to update the `String()` method, it won't print correctly, which can lead to confusion and errors.
 
-This is where the stringer tool becomes invaluable, since it generates the `String()` method for you, ensuring that your enum values always have corresponding string representations, which keeps the code up-to-date and reduces manual maintenance:
+This is where the stringer tool becomes valuable, since it generates the `String()` method for you. This ensures that your enum values always have corresponding string representations, keeps the code up to date, and reduces manual maintenance:
 
 ```go
 $ go install golang.org/x/tools/cmd/stringer@latest
@@ -3471,7 +3471,7 @@ $ stringer -type HeroType
 
 There is a way to automate this process using `go generate`.
 
-By adding a special comment in your code, go generate will automatically invoke the stringer tool and create the `String()` method for you:
+By adding a special comment in your code, `go generate` will automatically invoke the stringer tool and create the `String()` method for you:
 
 ```go
 //go:generate stringer -type=HeroType
@@ -3479,18 +3479,18 @@ type HeroType int
 
 const (
     HeroTypeTank HeroType = iota + 1
-    HeroTypeAssasin
+    HeroTypeAssassin
     HeroTypeMage
 )
 ```
 
 We can place the comment anywhere in the same package, but it's generally a good practice to place this comment directly above the enum type to keep the related code organized.
 
-There are options to change how String() works:
+There are options to change how `String()` works:
 
-- trimprefix: Remove a specified prefix from the enum names. 
+- trimprefix: Remove a specified prefix from the enum names.
 
-For instance, if our enum value is `HeroTypeTank`, it would normally be represented as the string "HeroTypeTank". 
+For instance, if our enum value is `HeroTypeTank`, it would normally be represented as the string "HeroTypeTank".
 
 But, by setting the trimprefix to "HeroType", the output changes to just "Tank":
 
@@ -3498,15 +3498,15 @@ But, by setting the trimprefix to "HeroType", the output changes to just "Tank":
 //go:generate stringer -type=HeroType -trimprefix=HeroType
 ```
 
--linecomment: Choose a completely different name by using a comment right after the enum value.
+- linecomment: Choose a completely different name by using a comment right after the enum value.
 
-We simply put the desired string right in a comment next to the enum value, and the stringer tool will use that instead. 
+We simply put the desired string right in a comment next to the enum value, and the stringer tool will use that instead.
 
 ```go
 //go:generate stringer -type=HeroType -linecomment
 const (
     HeroTypeTank HeroType = iota + 1 // Knat
-    HeroTypeAssasin                  // Nisassa
+    HeroTypeAssassin                 // Nissassa
     HeroTypeMage                     // Egam
 )
 ```
@@ -3515,7 +3515,7 @@ const (
 
 Sometimes in our codebase, we end up with functions that aren't used anywhere. This is what we call "dead code." It complicates maintenance because it's often unclear whether these functions are safe to delete or modify.
 
-Fortunately, there's a tool called `deadcode` that helps us identify these unused functions, we can install it with the following command:
+Fortunately, there's a tool called `deadcode` that helps us identify these unused functions. We can install it with the following command:
 
 ```bash
 $ go install golang.org/x/tools/cmd/deadcode@latest
@@ -3524,7 +3524,7 @@ $ go install golang.org/x/tools/cmd/deadcode@latest
 Once installed, running it is simple with this command:
 
 ```bash
-$ deadcode . 
+$ deadcode .
 ```
 
 This will scan our project and list out the functions that aren't being used, along with where they're located in our code.
@@ -3535,38 +3535,38 @@ internal/wallets.go:50:35 unreachable func: Transaction.CollectionName
 internal/utilx/randomx/string.go:23:6: unreachable func: RandomAlphabet
 ```
 
-This output shows us exactly where the dead code locates, it's easy for us to go in and clean it up.
+This output shows us exactly where the dead code is located, making it easy for us to go in and clean it up.
 
 If you're curious about why a particular function isn't being used or how it's disconnected from the rest of our codebase, we can use the `-whylive` flag. This flag tells the tool to provide explanations about the function's relationship to the rest of our code, which can be especially helpful if you're trying to understand large and complex codebases.
 
 How it works (simplified)
 
-1. First off, it begins by loading up all the code you've written and performs type-checking
+1. First, it begins by loading all the code you've written and performs type-checking.
 
-2. Once the initial setup is done, `deadcode` identifies the main entry points of your application, typically the `main()` function and any `init()` functions
+2. Once the initial setup is done, `deadcode` identifies the main entry points of your application, typically the `main()` function and any `init()` functions.
 
-3. From these points, the tool starts tracing the execution path, looks at which functions are called directly from these starting points
+3. From these points, the tool starts tracing the execution path and looks at which functions are called directly from these starting points.
 
 4. The tool goes deeper and looks at indirect calls as well, and these are typically the ones made through interfaces.
 
 5. The tool also tracks any types that are converted into interfaces, since once a type is associated with an interface, any methods defined by that interface could potentially be called.
 
-6. Finally, any function that doesn't connect back to the main execution path—meaning it isn't called either directly or indirectly, is labeled as "dead."
+6. Finally, any function that doesn't connect back to the main execution path, meaning it isn't called either directly or indirectly, is labeled as "dead."
 
----- 
-You can read more about finding and removing "dead-function" here: https://go.dev/blog/deadcode
+----
+You can read more about finding and removing dead functions here: https://go.dev/blog/deadcode
 
 ### Explicitly Ignore Values with Blank Identifier (`_`) Instead of Silently Ignoring Them
 
-Sometimes, you run into functions that return values you might not need to use and in these cases, we have two ways to handle these unwanted return values.
+Sometimes, you run into functions that return values you might not need to use. In these cases, we have two ways to handle these unwanted return values.
 
-The first way involves implicitly ignoring the return value. 
+The first way involves implicitly ignoring the return value.
 
-Here, you simply call the function without assigning its return value to any variable, this method is simple and keeps your code short:
+Here, you simply call the function without assigning its return value to any variable. This method is simple and keeps your code short:
 
 ```go
 func PerformOperation() string {
-    ... 
+    ...
     return "anything"
 }
 
@@ -3577,7 +3577,7 @@ func main() {
 
 The second method is more explicit. 
 
-You **explicitly ignore** the return value by assigning it to the blank identifier _. This makes your intent clear but adds a bit more verbosity to your code:
+You **explicitly ignore** the return value by assigning it to the blank identifier `_`. This makes your intent clear but adds a bit more verbosity to your code:
 
 ```go
 func main() {
@@ -3585,9 +3585,9 @@ func main() {
 }
 ```
 
-> "why the explicit approach is preferred when it seems less concise?"
+> "Why is the explicit approach preferred when it seems less concise?"
 
-The answer lies in the value of **clarity over brevity** in coding practices. 
+The answer lies in the value of **clarity over brevity** in coding practices.
 
 Using `_ =` to ignore a return value signals to other developers, or even to your future self, that the omission of the return value was intentional rather than an oversight.
 
@@ -3595,16 +3595,16 @@ Using `_ =` to ignore a return value signals to other developers, or even to you
 
 When it comes to handling errors, if a function returns an error, it's important to address it directly.
 
-We should either handle the error appropriately or, at the very least, log it. 
+We should either handle the error appropriately or, at the very least, log it.
 
-It might also be helpful to add a comment explaining why the error is being ignored, to provide clarity for anyone reviewing the code in the future. 
+It might also be helpful to add a comment explaining why the error is being ignored, to provide clarity for anyone reviewing the code in the future.
 
 ### If a Parameter Isn't Needed, Either Drop It or Ignore It on Purpose
 
 Before we dive into the tip, let's look at a problem in the following example:
 
 ```go
-func (d Downloader) FetchFile(url string, checknum string) error {
+func (d Downloader) FetchFile(url string, checksum string) error {
     err := sd.file.Download(url)
     if err != nil {
         return fmt.Errorf("download file: %w", err)
@@ -3614,14 +3614,14 @@ func (d Downloader) FetchFile(url string, checknum string) error {
 }
 ```
 
-Here, the `FetchFile` function is given a `url` and a `checksum` for downloading a file. But, it only uses the `url` and completely ignores the checksum, and the thing is, the Go compiler won't point out if you forgot to use an argument in a function, which is not the case with unused local variables.
+Here, the `FetchFile` function is given a `url` and a `checksum` for downloading a file. But it only uses the `url` and completely ignores the checksum. The thing is, the Go compiler won't point out if you forgot to use an argument in a function, unlike with unused local variables.
 
 Because of this, it's hard to tell if leaving out the checksum was a mistake or done on purpose.
 
 Now, to handle this better, we have a couple of options:
 
 - We could just remove the unused parameter from the function altogether.
-- Or, We can clearly show that we're ignoring a parameter by using an underscore _. This way, anyone looking at our code can easily see that we meant to leave it out.
+- Or, we can clearly show that we're ignoring a parameter by using an underscore `_`. This way, anyone looking at our code can easily see that we meant to leave it out.
 
 Let's clean up that function using what we discussed:
 
@@ -3631,11 +3631,11 @@ func (d Downloader) FetchFile(url string, _ string) error {
 }
 ```
 
-By using the underscore in place of a parameter name, we're letting everyone know that this part of the function is intentionally not used. 
+By using the underscore in place of a parameter name, we're letting everyone know that this part of the function is intentionally not used.
 
 > "Why not just take it out?"
 
-Yeah, removing the unused parameter can definitely clean things up. 
+Yeah, removing the unused parameter can definitely clean things up.
 
 However, there are times when you might need to keep it there, especially if you are following a specific pattern or an interface:
 
@@ -3647,7 +3647,7 @@ type FileDownloader interface {
 
 In cases like this, even if you don't use the checksum in your implementation, you still need to include it to match the interface requirements.
 
-But, if you find yourself using a lot of underscores to ignore parameters, it might be a hint that there’s something off with how the interface or function setup is designed. It could mean that it's time to rethink whether all those parameters are necessary or if the interface needs changing to better fit the actual usage.
+But if you find yourself using a lot of underscores to ignore parameters, it might be a hint that there's something off with how the interface or function setup is designed. It could mean that it's time to rethink whether all those parameters are necessary or if the interface needs to change to better fit the actual usage.
 
 ### Loop Labels for Cleaner Breaks and Continues
 
@@ -3669,12 +3669,12 @@ fmt.Println("User authenticated")
 
 In this small snippet, everything might seem straightforward because it's pretty simple. But when your code starts getting more complex, following these `goto` statements can turn into a real headache.
 
-- Imagine having to trace a label that's way far off from where the `goto` statement is, like, you might end up looking 'hundreds of miles' up and down your code trying to figure out where exactly it jumps. 
+- Imagine having to trace a label that's far away from where the `goto` statement is. You might end up looking up and down your code trying to figure out where exactly it jumps.
 - Your eyes moving back and forth through the code to track the flow can quickly turn into a confusing task.
 
 #### Loop labels
 
-Now, when it comes to handling nested loops, using loop labels can be a really good practice in certain situations. 
+Now, when it comes to handling nested loops, using loop labels can be a really good practice in certain situations.
 
 Let's say we're searching for a specific number within 2D arrays:
 
@@ -3695,9 +3695,9 @@ for i, row := range matrix {
 }
 ```
 
-This definitely works, but there's a cleaner way to manage it. 
+This definitely works, but there's a cleaner way to manage it.
 
-By using a **loop label**, we can name a loop and then control not just the current loop but any surrounding ones as well with a break or continue followed by the label. Here’s how we can do it:
+By using a **loop label**, we can name a loop and then control not just the current loop but any surrounding ones as well with a `break` or `continue` followed by the label. Here's how we can do it:
 
 ```go
 OuterLoop:
@@ -3711,7 +3711,7 @@ for i, row := range matrix {
 }
 ```
 
-This strategy doesn't just shorten the code, it also makes it easier to understand by clearly defining which loop is being exited.
+This strategy doesn't just shorten the code. It also makes it easier to understand by clearly defining which loop is being exited.
 
 Loop labels can be useful with `select{}` statements within loops too. Normally, if you use a `break` in a `select` statement without specifying a label, you'll only exit the `select`, not the loop containing it:
 
@@ -3757,7 +3757,7 @@ default:
 
 ### The Downsides of Relying on init() Functions in Your Go Code
 
-The `init()` function in Go is quite unique as it runs before the `main` function and after global variables have been initialized. You might come across code where global variables are initialized in `init()` to keep track and centralize the initialization process.
+The `init()` function in Go is quite unique, as it runs before the `main` function and after global variables have been initialized. You might come across code where global variables are initialized in `init()` to keep track of and centralize the initialization process.
 
 ```go
 var preComputedValue float64
@@ -3773,7 +3773,7 @@ func main() {
 
 _[Avoid Global Variables, Especially Mutable Ones](#avoid-global-variables-especially-mutable-ones)_
 
-While this method seems convenient for keeping initialization in one place, it's generally better to keep global variables to a minimum. 
+While this method seems convenient for keeping initialization in one place, it's generally better to keep global variables to a minimum.
 
 Moreover, we can initialize `precomputedValue` directly where it's declared:
 
@@ -3781,7 +3781,7 @@ Moreover, we can initialize `precomputedValue` directly where it's declared:
 var precomputedValue = math.Sqrt(2) * math.Pi
 ```
 
-> "But I prefer using `init()` because it provides a centralized place to set up values, rather than having to scan through each file to find and change them"
+> "But I prefer using `init()` because it provides a centralized place to set up values, rather than having to scan through each file to find and change them."
 
 It's usually more transparent to initialize the value of a global variable as close to its declaration as possible. This way, we can understand the variable's value right away without needing to search for an `init()` function and trace back to where the variable was defined.
 
@@ -3801,15 +3801,15 @@ Whether it's revisiting your own code after some time or trying to understand so
 
 4. Global variables
 
-Using `init()` often involves setting up global variables, but it's important to handle these with care. Global variables can be accessed and modified from anywhere in your code, which can lead to unpredictable results and difficult-to-track bugs. 
+Using `init()` often involves setting up global variables, but it's important to handle these with care. Global variables can be accessed and modified from anywhere in your code, which can lead to unpredictable results and difficult-to-track bugs.
 
-Whenever possible, think about allowing the user of your package to handle the setup. 
+Whenever possible, think about allowing the user of your package to handle the setup.
 
 This style not only makes your code more modular and easier to manage but also enhances transparency, helping clients to see and control exactly how and when components are initialized.
 
 5. If you want to use it, go ahead
 
-We're here not entirely against the use of the `init()` function, there are valid reasons why you might still choose to use init() in your projects:
+We're not entirely against the use of the `init()` function. There are valid reasons why you might still choose to use `init()` in your projects:
 
 - You prefer not to require users to explicitly call `yourpackage.Init()` every time they use your package.
 - You need to register certain hooks that are critical for your package's functionality.
@@ -3817,11 +3817,11 @@ We're here not entirely against the use of the `init()` function, there are vali
 - You have global variables whose values depend on different build tags.
 - ...
 
-If you decide that init() is necessary, here are some guidelines to follow to mitigate potential issues:
+If you decide that `init()` is necessary, here are some guidelines to follow to mitigate potential issues:
 
 - Try to avoid making external calls, including I/O operations, within `init()`.
-- Refrain from starting goroutines in init(), as this can lead to complex and unpredictable concurrency issues.
-- Do not rely on the order in which `init()` functions are called. 
+- Refrain from starting goroutines in `init()`, as this can lead to complex and unpredictable concurrency issues.
+- Do not rely on the order in which `init()` functions are called.
 - Make sure that you do not modify the global variables of other packages.
 - It's helpful to place your `init()` function close to the global variable it modifies to make the relationship clear.
 - Document which `init()` function affects each global variable, ideally with a comment above the global variable declaration.
@@ -3832,13 +3832,13 @@ Most importantly, aim for determinism: your `init()` function should produce the
 
 When we're working with interfaces in Go, here are a few practical tips:
 
-1. We should never define an interface until we actually need one, this prevents unnecessary abstraction.
+1. We should never define an interface until we actually need one. This prevents unnecessary abstraction.
 2. It's a good practice to accept interfaces as function arguments but return concrete types.
 3. Place interfaces where they are used (consumer), not where they are implemented (provider).
 
 The third point builds directly on the first one.
 
-Let’s dive into an example to see why these points matter, especially the one about "accepting interfaces and returning concrete types":
+Let's dive into an example to see why these points matter, especially the one about "accepting interfaces and returning concrete types":
 
 ```go
 type UserProfileManager interface {
@@ -3858,7 +3858,7 @@ func LogUserDetails(manager UserProfileManager, userID string) error {
 }
 ```
 
-Here, the `LogUserDetails(..)` function only needs to use the `GetUser()` method from the `UserProfileManager` interface. 
+Here, the `LogUserDetails(..)` function only needs to use the `GetUser()` method from the `UserProfileManager` interface.
 
 It doesn't need `CreateUser` or `UpdateUser`. This is a bit of a problem because it means the function is tied to a bigger interface than it actually needs, which can make testing tougher, mess with flexibility, and make the code harder to read.
 
@@ -3866,9 +3866,9 @@ Now, interfaces facilitate abstraction, but the larger the interface, the less a
 
 > "Why does this make testing a pain?"
 
-When we're setting up tests, it's easiest if you can clearly see which methods of an interface are actually being used by the function. If the interface is too big, you end up having to mock extra methods that aren’t even relevant, which just makes more work for no good reason.
+When we're setting up tests, it's easiest if you can clearly see which methods of an interface are actually being used by the function. If the interface is too big, you end up having to mock extra methods that aren't even relevant, which just makes more work for no good reason.
 
-What’s a better way to handle it?
+What's a better way to handle it?
 
 You probably guessed it, our function should just ask for an interface that includes exactly what it needs:
 
@@ -3893,7 +3893,7 @@ Any concrete type that fits the `UserManager` should work just fine with the `Us
 
 ### Avoid Named Results unless Necessary for Documentation
 
-Named results can really help make your code easier to read, both in the source code and in the documentation generated by tools like `godoc` or `pkg.go.dev`. But it's important to know when and how to use them properly, here’s a straightforward rundown:
+Named results can really help make your code easier to read, both in the source code and in the documentation generated by tools like `godoc` or `pkg.go.dev`. But it's important to know when and how to use them properly. Here's a straightforward rundown:
 
 1. Clarification when necessary
 
@@ -3927,7 +3927,7 @@ Don't:
 
 #### 2. Avoid Naked Returns in Long Functions
 
-People are often aggressive about avoiding naked returns because they can seriously ruin readability and confuse the clarity of the code, especially in more complex functions.
+People are often strict about avoiding naked returns because they can seriously hurt readability and clarity, especially in more complex functions.
 
 However, in shorter, simpler functions, naked returns can be perfectly acceptable:
 
@@ -3939,13 +3939,13 @@ func calculateStats(a, b int) (sum int, product int) {
 }
 ```
 
-In this snippet, the function is concise enough that it's straightforward to follow what `sum` and `product` represent without needing to track them through a lot of code, their purpose is clear right from the start.
+In this snippet, the function is concise enough that it's straightforward to follow what `sum` and `product` represent without needing to track them through a lot of code. Their purpose is clear right from the start.
 
 But for longer functions, the consensus is strong: avoid naked returns. When in doubt, favor explicitness to maintain clarity and ease of understanding.
 
 #### 3. Necessary for Deferred Closures
 
-It’s important to name result parameters when you need to modify a return value in a deferred function call.
+It's important to name result parameters when you need to modify a return value in a deferred function call.
 
 ```go
 func doSomething() (result int, err error) {
@@ -3960,11 +3960,11 @@ func doSomething() (result int, err error) {
 }
 ```
 
-In the example, the result parameters `result` and `err` are specifically named. 
+In the example, the result parameters `result` and `err` are specifically named.
 
-This naming allows these variables to be accessible and modifiable within the deferred closure, which is particularly useful for handling outcomes or responding to a `panic` situation. This setup makes sure that any necessary changes to the return values are handled gracefully.
+This naming allows these variables to be accessible and modifiable within the deferred closure, which is particularly useful for handling outcomes or responding to a `panic` situation. This setup ensures that any necessary changes to the return values are handled gracefully.
 
-#### 4. Some Cases Don’t Need Naming, Even With More Than Two Results
+#### 4. Some Cases Don't Need Naming, Even With More Than Two Results
 
 When functions return objects of the same type, particularly in methods of a type, naming each returned object can be repetitive and make our documentation unnecessarily dense.
 
@@ -4022,7 +4022,7 @@ func fetchDetails(id int) (*User, *Detail, error) {
 </td></tr>
 </tbody></table>
 
-In these comparisons, the more effective examples demonstrate how omitting the naming of returned objects can lead to cleaner, more concise code
+In these comparisons, the more effective examples demonstrate how omitting the naming of returned objects can lead to cleaner, more concise code.
 
 ### Lead with Context, End with Options, and Always Close with an Error
 
@@ -4052,13 +4052,13 @@ func FetchData(ctx context.Context, url string) ([]byte, error) {
 
 Additionally, you should avoid embedding the `context.Context` in a struct (not always).
 
-The nature of context is to be transient and flow through the application rather than being part of an object's state, this ensures that the context remains relevant only for the duration it's needed and isn't tied down unnecessarily.
+The nature of context is to be transient and flow through the application rather than being part of an object's state. This ensures that the context remains relevant only for the duration it's needed and isn't tied down unnecessarily.
 
 _(there are exceptions, such as in the case of an HTTP Handler where it's typical to pull the context from the request since the context is already tied to the lifecycle of that request)_
 
 2. Options struct trails behind
 
-The "options struct" pattern is a flexible and powerful approach for managing functions that might need to evolve over time without breaking compatibility. 
+The "options struct" pattern is a flexible and powerful approach for managing functions that might need to evolve over time without breaking compatibility.
 
 _[Simplify Function Signatures with Structs or Variadic Options](#simplify-function-signatures-with-structs-or-variadic-options)_
 
@@ -4071,7 +4071,7 @@ type FetchOption struct {
 func FetchData(context.Context, string, FetchOptions) ([]byte, error)
 ```
 
-The order of arguments shows their importance. 
+The order of arguments shows their importance.
 
 Putting this struct at the end of the function does two things:
 
@@ -4082,7 +4082,7 @@ Putting this struct at the end of the function does two things:
 
 In Go, the standard way to show whether an operation worked or not is by using the last return value, which is usually an error.
 
-In situations where a simple yes or no answer is more suitable, like checking if something exists, that too is positioned at the end.
+In situations where a simple yes or no answer is more suitable, like checking if something exists, that value is also positioned at the end.
 
 If both an error and a boolean are needed, the order should go (x, bool, error).
 
@@ -4108,7 +4108,7 @@ var tmpl = template.Must(template.New("name").Parse("{{.}}"))
 
 If you've been using Go for a while, you might have seen these functions in the standard library.
 
-These functions are easily spotted by their names, they start with 'Must' (or 'must'). This naming is a clear sign that they can cause a panic if something unexpected happens.
+These functions are easy to spot by their names. They start with `Must` (or `must`). This naming is a clear sign that they can cause a panic if something unexpected happens.
 
 ```go
 func MustCompile(text string) *Regexp {
@@ -4156,17 +4156,17 @@ This is a topic that has tripped up many folks, myself included, when we first s
 Often, there's a strong temptation to pass pointers in our functions for a couple of reasons:
 
 - One might be looking to avoid the overhead associated with copying a struct.
-- Or perhaps, you already have a pointer, and it feels like an unnecessary step to dereference it just to pass the value (*T).
+- Or perhaps you already have a pointer, and it feels like an unnecessary step to dereference it just to pass the value (`*T`).
 
 #### 0. Common Thoughts about Pointers:
 
 It's quite usual to think of pointers as a clever way to conserve memory.
 
-Why would one go through the problem of copying all that data to pass to a function when you could simply send over a tiny address that points to where the data is stored, right?
+Why would someone go through the trouble of copying all that data to pass to a function when they could simply send over a tiny address that points to where the data is stored, right?
 
 However, the advice generally leans towards preferring to pass values directly to functions instead of passing pointers.
 
-Why? Here are 5 key points on when to pass values.
+Why? Here are 5 key points for when to pass values.
 
 #### 1. Fixed-sized Types
 
@@ -4184,7 +4184,7 @@ func CalculateArea(rect Rectangle) int {
 }
 ```
 
-Here, passing the `Rectangle` struct directly is efficient because the size of the struct is on par with a pointer in terms of memory usage, this means you don't incur any significant overhead.
+Here, passing the `Rectangle` struct directly is efficient because the size of the struct is on par with a pointer in terms of memory usage. This means you don't incur any significant overhead.
 
 #### 2. Immutability and Clarity
 
@@ -4213,7 +4213,7 @@ In the examples provided, both methods are considered good practice. If you need
 
 When it comes to passing values to functions, the guidelines differ somewhat.
 
-For methods, using pointer receivers is generally recommended because in Go, we can call methods on both values and pointers to a type, which already makes the distinction between the two a bit blurry, there are also several rules in that tip.
+For methods, using pointer receivers is generally recommended because in Go, we can call methods on both values and pointers to a type, which already makes the distinction between the two a bit blurry. There are also several rules in that tip.
 
 However, when you're dealing with "standalone" functions, passing values is frequently the preferred method because it avoids potential side effects.
 
@@ -4226,14 +4226,14 @@ For data types that are inherently small or unlikely to expand significantly in 
 It might indeed seem counterintuitive because it involves copying, but here's why passing values can often be faster than passing pointers:
 
 - Copying a small amount of data is highly efficient and can sometimes be quicker than dealing with the indirection that comes with using pointers.
-- It reduces the workload on the garbage collector, when values are passed directly, the garbage collector has fewer pointer references to keep track of.
+- It reduces the workload on the garbage collector. When values are passed directly, the garbage collector has fewer pointer references to keep track of.
 - Data that is passed by value tends to be stored more contiguously in memory, which allows the CPU to access this data more efficiently.
 
 It's a rare occurrence to have a struct that is so large it actually benefits from being passed by pointer due to its size.
 
 #### 5. Make Passing Values Your Default
 
-We should default to passing values unless you have benchmarks that demonstrate a clear advantage to using pointers.
+We should default to passing values unless we have benchmarks that demonstrate a clear advantage to using pointers.
 
 A slight performance improvement is often not worth the loss of clarity that can come with using pointers.
 
@@ -4248,9 +4248,9 @@ Here is a quick insight: https://twitter.com/func25/status/1757759982354026636
 So, when should you consider opting for a pointer receiver?
 
 - To modify the receiver's state directly within the method.
-- For structs that are considered "large" — though what qualifies as large can be a bit subjective and might vary depending on the context.
+- For structs that are considered "large", though what qualifies as large can be a bit subjective and might vary depending on the context.
 - When a struct includes synchronizing fields such as `sync.Mutex`, using a pointer in these cases helps prevent copying the lock mechanism, which is crucial for maintaining thread safety.
-- If you're unsure, relying on the side of a pointer receiver might be a safer bet as it covers more scenarios without adverse effects.
+- If you're unsure, relying on the side of a pointer receiver might be a safer bet because it covers more scenarios without adverse effects.
 
 ```go
 type SafeCounter struct {
@@ -4268,12 +4268,12 @@ func (s *SafeCounter) Increment() {
 
 Now, when is a value receiver more suitable?
 
-- For types that are inherently small and are not expected to change — essentially, immutable types.
+- For types that are inherently small and are not expected to change, essentially immutable types.
 - If our type is a map, func, channel, or involves slices that are not changed in terms of size or capacity (even though the elements within may be modified).
 
 > "Why do slices that aren't changed in size or capacity matter in this context?"
 
-Een though we can modify the elements of the slice or the content of the underlying array through a value receiver, which indeed affects the original slice, any operation that resizes the slice, like using the `append` function that **increases its capacity**, won't impact the original slice outside the method. 
+Even though we can modify the elements of the slice or the content of the underlying array through a value receiver, which indeed affects the original slice, any operation that resizes the slice, like using the `append` function that **increases its capacity**, won't impact the original slice outside the method.
 
 To illustrate this, consider the following example:
 
@@ -4298,12 +4298,12 @@ It's advisable to avoid mixing receiver types for a given struct to maintain con
 
 There are a couple of main reasons for this:
 
-- Using both pointer and value receivers can lead to confusion and inconsistency in how instances of that struct are manipulated, in Go, we can call methods on both values and pointers to a type.
+- Using both pointer and value receivers can lead to confusion and inconsistency in how instances of that struct are manipulated. In Go, we can call methods on both values and pointers to a type.
 - Consistency in receiver types helps maintain straightforward and predictable interactions with interfaces. (for more details, refer back to my earlier [tweet in part 4/4](https://twitter.com/func25/status/1757760004768354346)).
 
 ### Simplify Function Signatures with Structs or Variadic Options
 
-When designing functions in Go, you might find yourself needing to pass a large number of parameters. 
+When designing functions in Go, you might find yourself needing to pass a large number of parameters.
 
 ```go
 func ConnectToService(
@@ -4326,12 +4326,12 @@ To keep things tidy, consider two strategies:
 
 #### 1. Option Structs
 
-One effective method is to bundle your parameters into a struct, this not only enhances readability but also simplifies the process of passing arguments.
+One effective method is to bundle your parameters into a struct. This not only enhances readability but also simplifies the process of passing arguments.
 
 When should we use it?
 
 - When our function has a long list of parameters, of course.
-- If we're aiming for self-documenting code, as struct fields inherently describe their purpose by their names, their comments.
+- If we're aiming for self-documenting code, as struct fields inherently describe their purpose through their names and comments.
 - If we want to easily set default values or modify options in a flexible way.
 
 ```go
@@ -4381,7 +4381,7 @@ type ServiceConfig struct {
     ssl bool
 }
 
-type ServiceOption func(*ServiceConfig) 
+type ServiceOption func(*ServiceConfig)
 
 func WithSSL(enable bool) ServiceOption {
     return func(cfg *ServiceConfig) {
@@ -4395,7 +4395,7 @@ func ConnectToService(options ...ServiceOption) {
         option(&cfg)
     }
 
-    ... 
+    ...
 }
 ```
 
@@ -4409,13 +4409,13 @@ ConnectToService(WithSSL(true))
 
 Setting a default value is easier than with an optional struct; there is no need to hide it. Instead, you can just place the default value directly in the ConnectToService function.
 
-We may hate the idea of variadic options, because they're more complex to implement than a struct, but personally, I would prefer to handle the complexity of implementing variadic options on the provider/ library side, allowing the caller to have an easier experience using my service.
+We may hate the idea of variadic options because they're more complex to implement than a struct. But personally, I would prefer to handle the complexity of implementing variadic options on the provider or library side, allowing the caller to have an easier experience using my service.
 
 ### Give the Caller the Right to Make Decisions
 
 Here's the concept: When you're crafting a function, you'll need to make some choices, such as:
 
-- How to handle errors—should you log them or let the program panic?
+- How to handle errors: should you log them or let the program panic?
 - Is it appropriate to spawn goroutines within the function?
 - Should you set a context timeout for 10 seconds?
 
@@ -4452,7 +4452,7 @@ This method allows the caller to decide what to do next, whether that's logging 
 
 _This thought links back to [Single Touch Error Handling: Less Noise](#single-touch-error-handling-less-noise)_
 
-By doing so, we allow the callers the authority to decide how severe an error is in their specific context and what the appropriate action should be, logging, retrying, panicking, etc.
+By doing so, we give callers the authority to decide how severe an error is in their specific context and what the appropriate action should be: logging, retrying, panicking, etc.
 
 #### 2. Goroutines
 
@@ -4466,9 +4466,9 @@ func fire() {
 }
 ```
 
-When our function requires performing concurrent operations, it can be tempting to launch a goroutine within it. However, it’s often more suitable to let the caller decide when and how to handle concurrency, such as by invoking 'go fire()' from their side.
+When our function requires performing concurrent operations, it can be tempting to launch a goroutine within it. However, it's often more suitable to let the caller decide when and how to handle concurrency, such as by invoking `go fire()` from their side.
 
-The example above also shows a lack of control for the caller, perhaps we should consider giving the caller the ability to manage the goroutine's lifetime as well.
+The example above also shows a lack of control for the caller. Perhaps we should consider giving the caller the ability to manage the goroutine's lifetime as well.
 
 #### 3. Other Operations
 
@@ -4481,20 +4481,20 @@ It includes a wider range of code design decisions, allowing the caller to deter
 - Whether to initiate a database transaction.
 - Among other considerations...
 
-However, as with many strategies in software development, it depends. You don’t want to burden the caller with too many choices, rather, provide them with just what they need.
+However, as with many strategies in software development, it depends. You don't want to burden the caller with too many choices. Rather, provide them with just what they need.
 
 By giving critical decision-making to the caller, our code becomes more adaptable, reusable, and sensitive to varying contexts.
 
 ### Tips for a Cleaner, More Testable main() Function in Go
 
-Often, we stuff a lot of different tasks into the main() function, such as:
+Often, we stuff a lot of different tasks into the `main()` function, such as:
 
 - Setting up the environment and JSON configurations.
 - Connecting to a database, a Redis cache, or other services.
 - Establishing connections to a message queue or linking up with other services.
 - ...
 
-When there's a problem, it's common practice to halt the program using log.Fatal:
+When there's a problem, it's common practice to halt the program using `log.Fatal`:
 
 ```go
 func main() {
@@ -4511,11 +4511,11 @@ func main() {
 }
 ```
 
-If this solution sounds familiar, it's not necessarily bad, particularly if you don't require very detailed control. 
+If this solution sounds familiar, it's not necessarily bad, particularly if you don't require very detailed control.
 
 What if we aimed to improve it? Let's list out some goals:
 
-- Using log.Fatal abruptly stops the program, which means any functions that are deferred to run after the code completes won't execute.
+- Using `log.Fatal` abruptly stops the program, which means any functions that are deferred to run after the code completes won't execute.
 - We'd like the flexibility to tweak arguments (such as `os.Args`) or the environment settings to facilitate different testing scenarios.
 - I'd prefer not to stick to using `log.Fatal` for every error that crops up.
 - I want to have control over how the application terminates, whether in error (with an exit code of 1) or smoothly (with an exit code of 0).
@@ -4538,22 +4538,22 @@ func run(args []string) error {
         return fmt.Errorf("fetch config failed: %w", err)
     }
 
-    dbConn, err := db.Connect(conf.DB);
-    if  err != nil {
+    dbConn, err := db.Connect(conf.DB)
+    if err != nil {
         return fmt.Errorf("unable to connect db: %w", err)
     }
-    defer dbConn.Close() // This now will be called when run() ends even any seting up error
+    defer dbConn.Close() // This will now be called when run() ends, even if a later setup error occurs.
 
-    ... 
+    ...
     return nil
 }
 ```
 
 By restructuring it this way, we've achieved all our goals, and now the `main()` function primarily handles getting things ready to run.
 
-This setup allows us to test the 'run' part independently with different sets of arguments.
+This setup allows us to test the `run` part independently with different sets of arguments.
 
-If we want to do more than just return an error, like returning a specific exit code, we could modify the run function to return an integer. This way, we can end the program with os.Exit and the appropriate exit code:
+If we want to do more than just return an error, like returning a specific exit code, we could modify the `run` function to return an integer. This way, we can end the program with `os.Exit` and the appropriate exit code:
 
 ```go
 func run(args []string) int {
@@ -4561,15 +4561,15 @@ func run(args []string) int {
 }
 ```
 
-Also, by delegating error handling to the main function, we avoid the need to write a log for each error, simplify our error management process.
+Also, by delegating error handling to the `main` function, we avoid the need to write a log for each error, simplifying our error management process.
 
-### Just... Don’t Panic()
+### Just... Don't Panic()
 
 The advice "Don't panic" might seem a bit aggressive (or blunt?), but it's actually a solid guideline when it comes to running software in production environments.
 
-> ""Why? Even though I can catch a panic with recover()?"
+> "Why? Even though I can catch a panic with recover()?"
 
-Well, it turns out that you might not always be able to recover from a panic(), even with the help of recover(), let me explain this a bit further:
+Well, it turns out that you might not always be able to recover from a `panic()`, even with the help of `recover()`. Let me explain this a bit further:
 
 ```go
 func panicFunc() {
@@ -4593,19 +4593,19 @@ func main() {
 
 In the snippet above, the panic is triggered in a separate goroutine (`go panicFunc()`).
 
-The mechanism for panic recovery with `recover()` only works properly if the panic happens within the same goroutine as where the `recover()` call is made. This means that the defer function in the main cannot catch or recover from the panic, leading to a crash of the program despite the attempted recovery.
+The mechanism for panic recovery with `recover()` only works properly if the panic happens within the same goroutine as where the `recover()` call is made. This means that the deferred function in `main` cannot catch or recover from the panic, leading to a program crash despite the attempted recovery.
 
 But there's more to it than just technical limitations. Here are a couple more reasons why preventing panics is crucial, especially in production:
 
 1. In production, your code needs to be stable. 
 
-An unexpected crash is a serious issue and it can lead to downtime, affecting not only user experience but potentially harming your business's reputation as well.
+An unexpected crash is a serious issue, and it can lead to downtime, affecting not only user experience but potentially harming your business's reputation as well.
 
 2. A panic in one part of your system can set off a chain reaction, causing more failures across the system.
 
 This is particularly risky in environments like microservices or other distributed systems where components heavily depend on each other, potentially leading to what is known as cascading failures.
 
-Let's discuss a common scenario where you're initializing your application in the `main` function. If something goes wrong during this initialization, you might be tempted to use panic to halt the process:
+Let's discuss a common scenario where you're initializing your application in the `main` function. If something goes wrong during this initialization, you might be tempted to use `panic` to halt the process:
 
 ```go
 func initFile(filePath string) {
@@ -4621,7 +4621,7 @@ func main() {
 }
 ```
 
-While this solution might seem passable, it actually encourages the use of panic, and in doing so, and we lost the ability to handle the error in a more graceful way.
+While this solution might seem passable, it actually encourages the use of `panic`, and in doing so, we lose the ability to handle the error in a more graceful way.
 
 ```go
 func initFile(filePath string) error {
@@ -4643,22 +4643,22 @@ func main() {
 }
 ```
 
-If an error occurs, it's returned to the `main` function, **where decisions can be made** about how to proceed. This could involve retrying the operation, using a default value, or logging a detailed error message for debugging purposes. 
+If an error occurs, it's returned to the `main` function, **where decisions can be made** about how to proceed. This could involve retrying the operation, using a default value, or logging a detailed error message for debugging purposes.
 
 _[Give the Caller the Right to Make Decisions](#give-the-caller-the-right-to-make-decisions)_
 
 Regarding the use of panics, they should generally be reserved as a last resort:
 
-- Only use panics for truly unrecoverable errors, this means situations where continuing to run the program could lead to more severe issues, e.g. data corruption, undefined behavior.
-- During program initialization, using a panic might be considered "acceptable" if a critical component fails to start, this indicates that the program cannot operate as intended and should be stopped immediately.
+- Only use panics for truly unrecoverable errors. This means situations where continuing to run the program could lead to more severe issues, such as data corruption or undefined behavior.
+- During program initialization, using a panic might be considered "acceptable" if a critical component fails to start. This indicates that the program cannot operate as intended and should be stopped immediately.
 
 ## Tricks
 
 ### Measure the Execution Time of a Function Using defer
 
-Here's a simple helper to measure how long it takes for a function to run using just one line, by using defer. 
+Here's a simple helper to measure how long it takes for a function to run using just one line, by using `defer`.
 
-This method is really useful for quick debugging and when developing, but remember, it might need some adjustments before you use it in a live setting.
+This method is really useful for quick debugging and development, but remember, it might need some adjustments before you use it in a live setting.
 
 ```go
 func main() {
@@ -4677,11 +4677,11 @@ func TrackTime(pre time.Time) time.Duration {
 // elapsed: 501.11125ms
 ```
 
-This approach works well because of how `defer` handles its arguments. 
+This approach works well because of how `defer` handles its arguments.
 
-When we use a defer statement, it figures out the values of its arguments right away, but it doesn't actually call the function until the very end of the function it's in, after everything else in that function has already happened. 
+When we use a `defer` statement, it figures out the values of its arguments right away, but it doesn't actually call the function until the very end of the function it's in, after everything else in that function has already happened.
 
-In this case, it waits until the `main` function is about to finish. This way, the elapsed time recorded includes all the actions that happened from the start till the end of the function, giving you a complete picture of how long the function took to execute.
+In this case, it waits until the `main` function is about to finish. This way, the elapsed time recorded includes all the actions that happened from the start to the end of the function, giving you a complete picture of how long the function took to execute.
 
 ### Multistage Defer: Handling the Start and End of a Function Efficiently
 
@@ -4710,7 +4710,7 @@ func MultistageDefer() func() {
 // Run cleanup
 ```
 
-This technique is particularly useful for managing resources, like a database connection, by setting it up at the start and ensuring it closes properly at the end. This setup frees the user from having to remember to close it themselves.
+This technique is particularly useful for managing resources, like a database connection, by setting it up at the start and ensuring it closes properly at the end. This setup frees the user from having to remember to close it.
 
 It can also be used to track how long a function runs with a simple setup:
 
@@ -4734,15 +4734,15 @@ func main() {
 // elapsed: 501.11125ms
 ```
 
-This trick provides a neat way to learn how defer works. However, it’s important to note that the syntax `()()` can be tricky to use correctly and isn’t typically recommended for larger, team-based projects.
+This trick provides a neat way to learn how `defer` works. However, it's important to note that the syntax `()()` can be tricky to use correctly and isn't typically recommended for larger, team-based projects.
 
 It's more suited to smaller or personal projects where you have full control over the environment.
 
-This trick is inspired by [@teivah](https://twitter.com/teivah)
+This trick is inspired by [@teivah](https://twitter.com/teivah).
 
 ### Make Structs Un-Comparable
 
-If every field within a struct is comparable, then the struct itself is comparable, this means we can use `==` and `!=` operators to compare two structs directly:
+If every field within a struct is comparable, then the struct itself is comparable. This means we can use `==` and `!=` operators to compare two structs directly:
 
 ```go
 type Point struct {
@@ -4765,7 +4765,7 @@ func (p Point) Equals(other Point) bool {
 }
 ```
 
-But let's consider this: using p1 == p2 is straightforward, fast, and all too tempting for anyone who might not be fully aware of the nuances or might not read through the entire methods of a type.
+But let's consider this: using `p1 == p2` is straightforward, fast, and all too tempting for anyone who might not be fully aware of the nuances or might not read through all methods of a type.
 
 To make sure that every developer consistently uses your defined comparison methods, here's a zero-cost strategy to make your structs non-comparable:
 
@@ -4776,15 +4776,15 @@ type Point struct {
 }
 ```
 
-This [0] func() field has three key properties:
+This `[0]func()` field has three key properties:
 
 - It's unexported, keeping it hidden from users of your struct, preventing external manipulation.
 - It's zero-width or no-cost, meaning this array takes up no space in memory because its length is zero.
-- It's non-comparable, `func()` is a function type, and functions are non-comparable in Go, which in turn makes the struct non-comparable.
+- It's non-comparable. `func()` is a function type, and functions are non-comparable in Go, which in turn makes the struct non-comparable.
 
 Trying to compare two instances directly using the `==` or `!=` operators when there's a [0]func() involved will indeed lead to a compile-time error.
 
-Now, it's particularly interesting to note the placement of the [0]func() within the struct, even though it doesn't actually take up any space, its position can affect the overall size of the struct.
+Now, it's particularly interesting to note the placement of the `[0]func()` within the struct. Even though it doesn't actually take up any space, its position can affect the overall size of the struct.
 
 For instance, if you check out this code:
 
@@ -4802,7 +4802,7 @@ type Point struct {
 }
 ```
 
-You can see how the placement of the `[0]func()` changes the size of the struct, this discussion is quite relevant and can be explored further in the GitHub issue [runtime: pointer to struct field can point beyond struct allocation #9401.](https://github.com/golang/go/issues/9401)
+You can see how the placement of the `[0]func()` changes the size of the struct. This discussion is quite relevant and can be explored further in the GitHub issue [runtime: pointer to struct field can point beyond struct allocation #9401.](https://github.com/golang/go/issues/9401)
 
 To make it clearer and more understandable, especially when notifying our team, we might define a custom type that encapsulates this non-comparable trait, something like this:
 
@@ -4815,13 +4815,13 @@ type Point struct {
 }
 ```
 
-This idea was inspired by [@nalesnikowydzem](https://twitter.com/nalesnikowydzem)
+This idea was inspired by [@nalesnikowydzem](https://twitter.com/nalesnikowydzem).
 
 ### Result Forwarding in Function Calls
 
-When first started using Go, we may find one concept a bit tricky: result forwarding in function calls.
+When first starting to use Go, we may find one concept a bit tricky: result forwarding in function calls.
 
-In Go, it's pretty common to receive multiple values from a function, right? Often a result paired with an error. Let's take a look at a typical example where we handle the output from a function like `processResult(result)` at the end of the function:
+In Go, it's pretty common to receive multiple values from a function, right? Often, this means a result paired with an error. Let's take a look at a typical example where we handle the output from a function like `processResult(result)` at the end of the function:
 
 ```go
 func doSomething() (int, error) {
@@ -4857,9 +4857,9 @@ func processResult(result int, err error) {
 }
 ```
 
-Now, let’s consider a scenario where we receive a result and an error, and based on that, we need to send a response back to the client with an appropriate status code.
+Now, let's consider a scenario where we receive a result and an error, and based on that, we need to send a response back to the client with an appropriate status code.
 
-In many API layers, we'll find numerous controllers or functions handling this pattern. They process the (result, error) tuple, returning a 400 status code if there’s an error, or a 200 OK if everything checks out fine:
+In many API layers, we'll find numerous controllers or functions handling this pattern. They process the `(result, error)` tuple, returning a 400 status code if there's an error, or a 200 OK if everything checks out fine:
 
 ```go
 func GetResult(api *API) {
@@ -4890,23 +4890,23 @@ func (api *API) JSONWithStatus(result any, err error) {
 }
 ```
 
-This tip is particularly effective when used in conjunction with a 'must' function: _[Intentionally Stop with Must Functions](#intentionally-stop-with-must-functions)_
+This tip is particularly effective when used in conjunction with a `must` function: _[Intentionally Stop with Must Functions](#intentionally-stop-with-must-functions)_.
 
-Additionally, I have a little generic helper function that takes care of returning the result if there’s no error, or halts the process if there is:
+Additionally, I have a little generic helper function that takes care of returning the result if there's no error, or halts the process if there is:
 
 ```go
 func Must[T any](result T, err error) T { ... }
 ```
 
-Of course, do not overuse this pattern. 
+Of course, do not overuse this pattern.
 
-While it's highly useful when you have a clear, repetitive pattern in your codebase, like the `Must` or the `JSONWithStatus` function we've talked about, it can be a poor choice, because hiding the error handling in utility functions can sometimes obscure what the code is actually doing.
+While it's highly useful when you have a clear, repetitive pattern in your codebase, like the `Must` or the `JSONWithStatus` function we've talked about, it can be a poor choice because hiding error handling in utility functions can sometimes obscure what the code is actually doing.
 
 ### Returning Pointers Made Easy with Generics
 
 Here's a handy tip for those coding in Go who frequently find themselves needing a pointer from a function return value.
 
-In the past, we might have handled this in a couple of ways, perhaps we did something like this:
+In the past, we might have handled this in a couple of ways. Perhaps we did something like this:
 
 ```go
 result := getData() 
@@ -4921,7 +4921,7 @@ ptr := func(t Data) *Data { return &t }(getData())
 
 While this method gets the job done, it can be somewhat verbose, especially if you're dealing with multiple data types and find yourself repeating the process.
 
-Now, let's discuss a more optimised, "trendy" solution using generics:
+Now, let's discuss a more optimized solution using generics:
 
 ```go
 func Ptr[T any](v T) *T {
@@ -4929,7 +4929,7 @@ func Ptr[T any](v T) *T {
 }
 ```
 
-This simple function allows us to generate a pointer for any type of value without the repetitive coding. All we need to do is pass our value to the `Ptr` function, and it returns the necessary pointer. 
+This simple function allows us to generate a pointer for any type of value without repetitive code. All we need to do is pass our value to the `Ptr` function, and it returns the necessary pointer.
 
 Here's how you can use it:
 
@@ -4943,7 +4943,7 @@ strPtr := Ptr("hello")
 
 ### Compile-Time Interface Verification
 
-Let's discuss a topic that resonates with those of us working with interfaces in Go, especially when it's important to ensure your structs properly implement an interface at compile time. Also, we have a nice central place to check it instead of looking around the codebase.
+Let's discuss a topic that resonates with those of us working with interfaces in Go, especially when it's important to ensure your structs properly implement an interface at compile time. This also gives us a central place to check it instead of looking around the codebase.
 
 Consider we have a `Buffer` interface that requires a `Write()` function, and we've created a `StringBuffer` struct intended to implement this interface.
 
@@ -4955,7 +4955,7 @@ type Buffer interface {
 type StringBuffer struct{}
 ```
 
-However, let’s say we accidentally introduce a typo in our method name, such as `Writeee()` instead of `Write()`, as shown here:
+However, let's say we accidentally introduce a typo in our method name, such as `Writeee()` instead of `Write()`, as shown here:
 
 ```go
 func (s *StringBuffer) Writeee(p []byte) (n int, err error) {
@@ -4969,7 +4969,7 @@ To help catch such errors more promptly, at compile time, you can use a simple y
 var _ Buffer = (*StringBuffer)(nil)
 ```
 
-This line of code will not change the runtime behavior but will compel the Go compiler to check whether `*StringBuffer` genuinely satisfies the `Buffer` interface. 
+This line of code will not change the runtime behavior but will compel the Go compiler to check whether `*StringBuffer` genuinely satisfies the `Buffer` interface.
 
 If `StringBuffer` fails to properly implement all the methods defined in Buffer, the compiler will immediately flag an error and tell us what's missing.
 
@@ -4998,11 +4998,11 @@ a := math.Point{1, 4}
 
 Using this method to instantiate the struct isn't typically problematic for something straightforward like a `Point` struct, which just includes `X` and `Y`.
 
-Let's say we decide to expand the `Point` struct by adding additional fields, such as a string 'label' field. 
+Let's say we decide to expand the `Point` struct by adding additional fields, such as a string `label` field.
 
-If this change is made, any existing code written by users of your library that does not update to include the new field will fail to compile. The error they would encounter would be something like "too few values in struct literal of type config.Point," and this results in issues with backward compatibility.
+If this change is made, any existing code written by users of your library that does not update to include the new field will fail to compile. The error they would encounter would be something like "too few values in struct literal of type config.Point," which results in issues with backward compatibility.
 
-To encourage users to explicitly define fields like `X` and `Y`, here’s a strategy: add a special variable to the struct that is both non-exported and zero-size.
+To encourage users to explicitly define fields like `X` and `Y`, here's a strategy: add a special variable to the struct that is both non-exported and zero-size.
 
 Common choices for zero-size types include empty structs (struct{}) and zero-length arrays:
 
@@ -5017,16 +5017,16 @@ a := math.Point{X: 1, Y: 4}
 b := Point{1, 4} // compile-time error
 ```
 
-This setup essentially signals: "This Point isn't just X and Y, there's more to come."
+This setup essentially signals: "This Point isn't just X and Y. There's more to come."
 
 > "Why a non-exported, zero-size field?"
 
-Using a non-exported, zero-size field is a clever tactic. 
+Using a non-exported, zero-size field is a clever tactic.
 
-- The non-exported aspect makes it inaccessible outside the package, maintaining encapsulation. 
-- Since it's zero-size, it doesn’t add any memory overhead to the struct.
+- The non-exported aspect makes it inaccessible outside the package, maintaining encapsulation.
+- Since it's zero-size, it doesn't add any memory overhead to the struct.
 
-If the `_ struct{}` syntax feels too obscure and doesn't clearly communicate the intention to prevent unkeyed literals, here’s another approach:
+If the `_ struct{}` syntax feels too obscure and doesn't clearly communicate the intention to prevent unkeyed literals, here's another approach:
 
 ```go
 type noUnkeyed struct {}
@@ -5040,9 +5040,9 @@ type Point struct {
 
 While a linter could catch issues with unkeyed literals, not all clients might use one, and this solution ensures compliance without reliance on external tools.
 
-Of course, it's worth mentioning that there are scenarios where using unkeyed literals might be preferable. 
+Of course, it's worth mentioning that there are scenarios where using unkeyed literals might be preferable.
 
-For instance, when dealing with a map element that only contains only key and value, e.g. `Pair { Key; Value }`, like `bson.E` in MongoDB, if these fields are unlikely to change, forcing keyed literals might actually reduce the readability of the code.
+For instance, when dealing with a map element that only contains key and value, such as `Pair { Key; Value }`, like `bson.E` in MongoDB, if these fields are unlikely to change, forcing keyed literals might actually reduce the readability of the code.
 
 ## Miscellaneous
 
@@ -5081,7 +5081,7 @@ b := *(*[3]int)(a[0:3])
 fmt.Println(b) // [0 1 2]
 ```
 
-This technique uses a type assertion to convert a segment of a slice directly into an array.
+This technique uses a type conversion to convert a segment of a slice directly into an array.
 
 ### Avoid Using `math/rand`, Use `crypto/rand` for Keys Instead
 
@@ -5089,7 +5089,7 @@ When you're working on projects that involve generating keys, whether it's for e
 
 **Why not math/rand?**
 
-The `math/rand` package is great for generating pseudo-random numbers. But this method has a major drawback: if someone figures out how the numbers are generated (the seed), they can predict future numbers. 
+The `math/rand` package is great for generating pseudo-random numbers. But this method has a major drawback: if someone figures out how the numbers are generated, meaning the seed, they can predict future numbers.
 
 ```go
 import "math/rand"
@@ -5108,7 +5108,7 @@ func Key() string {
 }
 ```
 
-Even if you seed the generator with something like the current time, the amount of unpredictability, or entropy, is fairly low. This is because there isn’t much variation in the time from one execution to the next.
+Even if you seed the generator with something like the current time, the amount of unpredictability, or entropy, is fairly low. This is because there isn't much variation in the time from one execution to the next.
 
 **Why crypto/rand?**
 
@@ -5131,7 +5131,7 @@ func Key() string {
 
 Using `crypto/rand` is particularly needed for operations like encryption, authentication, or any other context where security is a critical concern.
 
-Again, if you're generating keys for non-security-related purposes, `math/rand` is perfectly fine. 
+Again, if you're generating keys for non-security-related purposes, `math/rand` is perfectly fine.
 
 ### Table-driven Tests, Subtests, and Parallel Tests
 
@@ -5141,7 +5141,7 @@ It would indeed be a significant oversight to overlook the testing section in ou
 
 Table-driven testing is a strategy where tests are structured in a table format, clearly outlining the inputs and the expected outcomes.
 
-Take a quick example, we have a function add() that sums two numbers. Below is the way we could set up a testcase table:
+Take a quick example. We have a function `add()` that sums two numbers. Below is the way we could set up a test case table:
 
 ```go
 testCases := []struct {
@@ -5168,9 +5168,9 @@ func TestAdd(t *testing.T) {
 }
 ```
 
-This setup allows us to add as many test cases as we need, and if any of them fail, the results will be neatly printed out on your console or any other output.
+This setup allows us to add as many test cases as we need. If any of them fail, the results will be neatly printed out on your console or any other output.
 
-For instance, here's how some failed tests might look after mistakenly using a*b in the add() function:
+For instance, here's how some failed tests might look after mistakenly using `a*b` in the `add()` function:
 
 ```go
 --- FAIL: TestAdd (0.00s)
@@ -5182,13 +5182,13 @@ For instance, here's how some failed tests might look after mistakenly using a*b
 
 Okay, that's good enough, but there's still one piece missing here: the name of each test case.
 
-Naming each test case becomes incredibly important if a test fails, it helps us quickly identify which specific test didn't pass without needing to scrutinize the inputs and expected outcomes too closely.
+Naming each test case becomes incredibly important if a test fails. It helps us quickly identify which specific test didn't pass without needing to scrutinize the inputs and expected outcomes too closely.
 
 #### 2. Subtests & Parallel
 
 Subtests provide a way to structure tests logically under a larger test "umbrella" and allow for them to be run as part of a broader test function.
 
-To start, let’s assign a name to each test case, we could stick with an array format as before, or we could opt for using a `map[string]testcase` to make it clearer:
+To start, let's assign a name to each test case. We could stick with an array format as before, or we could use a `map[string]testcase` to make it clearer:
 
 ```go
 func TestAdd(t *testing.T) {
@@ -5204,7 +5204,7 @@ func TestAdd(t *testing.T) {
 }
 ```
 
-Next, we’ll modify our test to include a subtest for each case and enable parallel execution, pay attention to these two updates:
+Next, we'll modify our test to include a subtest for each case and enable parallel execution. Pay attention to these two updates:
 
 ```go
 for _, tc := range testCases {
@@ -5232,9 +5232,9 @@ This strategy of structuring test output makes it significantly easier and quick
 
 ### Enums Start from 1 for Categorization and 0 for Default Cases
 
-Just to point out that Go doesn't actually support enums natively, but we've all come to know a common workaround that sort of emulates this feature.
+Just to point out, Go doesn't actually support enums natively, but we've all come to know a common workaround that sort of emulates this feature.
 
-Let’s look at an example to clarify this point:
+Let's look at an example to clarify this point:
 
 ```go
 type UserRole int 
@@ -5245,11 +5245,11 @@ const (
 )
 ```
 
-In this setup, if a `UserRole` variable is declared without being explicitly initialized, it defaults to 0, which in this case, could inadvertently assign someone the `Admin` role. 
+In this setup, if a `UserRole` variable is declared without being explicitly initialized, it defaults to 0, which in this case could inadvertently assign someone the `Admin` role.
 
 Clearly, this isn't ideal, as it could lead to significant security flaws.
 
-Here’s a useful guideline to take:
+Here's a useful guideline to follow:
 
 - Starting enums at 1 is a strategy used to ensure that the zero value, which is the default for numeric type variables in Go, does not accidentally take on a meaningful state.
 - Starting enums at 0 is recommended when you want the default state to represent a meaningful and intentional choice.
@@ -5266,7 +5266,7 @@ const (
 )
 ```
 
-Or, you could think about using a different strategy where you introduce a role named 'Unknown' that kicks in as the default when things don't go as planned.
+Or, you could think about using a different strategy where you introduce a role named `Unknown` that kicks in as the default when things don't go as planned.
 
 ```go
 const (
@@ -5277,7 +5277,7 @@ const (
 
 > "I believe defaulting to Viewer is a better choice."
 
-It actually depends, that might not be the best idea all the time, e.g. an editor might be incorrectly assigned the `Viewer` role due to the default value, a potential logic error. The `Viewer` role could let someone see more than the `Editor` and this might not suit an editor who only needs to work on certain content, not everything a `Viewer` can see.
+It actually depends. That might not be the best idea all the time. For example, an editor might be incorrectly assigned the `Viewer` role due to the default value, which is a potential logic error. The `Viewer` role could let someone see more than the `Editor`, and this might not suit an editor who only needs to work on certain content, not everything a `Viewer` can see.
 
 That's why we use 0 to detect issues in our setup and avoid any potential problems.
 
@@ -5285,11 +5285,11 @@ Here are a few more examples to paint a clearer picture:
 
 - AppMode (development, testing, production)
 - Status (success, error, pending)
-- Action (login, logout, purchase). 
+- Action (login, logout, purchase).
 
 In these cases, each option is just as important as the others, so there's no default or preferred choice that stands out.
 
-How ever, when there's a definite default that makes sense, it's totally fine to set the zero value to reflect that:
+However, when there's a definite default that makes sense, it's totally fine to set the zero value to reflect that:
 
 ```go
 type ConnectionState int
@@ -5305,9 +5305,9 @@ Deciding whether to start enums at 0 or 1 really boils down to what you need for
 
 ### Using Flag Enums to Handle Multiple Properties in a Single Variable
 
-In Go, enums aren't quite set up like they are in some other programming languages (as we pointed out in previous tips)
+In Go, enums aren't quite set up like they are in some other programming languages, as we pointed out in previous tips.
 
-What Go offers instead is a neat trick where you use a block of constants with the iota identifier, and this setup acts a lot like an enum:
+What Go offers instead is a neat trick where you use a block of constants with the `iota` identifier, and this setup acts a lot like an enum:
 
 ```go
 type BasicInfo int
@@ -5321,15 +5321,15 @@ const (
 )
 ```
 
-Here, we begin our numbering at 1 by using iota + 1, this approach can be quite handy if we want to keep zero as a special case or if a zero value doesn't really fit into our scenario, something we've again, discussed.
+Here, we begin our numbering at 1 by using `iota + 1`. This approach can be quite handy if we want to keep zero as a special case or if a zero value doesn't really fit into our scenario, as we discussed earlier.
 
 _[Enums Start from 1 for Categorization and 0 for Default Cases](#enums-start-from-1-for-categorization-and-0-for-default-cases)_
 
 > "In the above example, what happens when a type can be both an integer and an unsigned?"
 
-Well, one option could be to introduce another type like `UnsignedInteger` or to create a separate enum to indicate whether something is `Signed` or `Unsigned`. 
+Well, one option could be to introduce another type like `UnsignedInteger` or to create a separate enum to indicate whether something is `Signed` or `Unsigned`.
 
-However, this solution doesn't scale very well as we start adding more combinations and it can get pretty cumbersome to manage all those possible states, especially if your application needs to handle multiple such types with many overlaps.
+However, this solution doesn't scale very well as we start adding more combinations, and it can get pretty cumbersome to manage all those possible states, especially if your application needs to handle multiple such types with many overlaps.
 
 #### Flag Enums
 
@@ -5351,7 +5351,7 @@ const (
 )
 ```
 
-With flag enums, we can easily combine properties like `IsInteger` and `IsUnsigned` without needing to create a brand new type. 
+With flag enums, we can easily combine properties like `IsInteger` and `IsUnsigned` without needing to create a brand-new type.
 
 Instead, we use the bitwise OR operator `|` to indicate that an unsigned integer possesses both of these characteristics:
 
